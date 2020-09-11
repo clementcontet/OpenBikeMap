@@ -13,6 +13,7 @@ import {OSM, Vector} from 'ol/source';
 import * as olProj from 'ol/proj';
 import TileLayer from 'ol/layer/Tile';
 import VectorSource from 'ol/source/Vector';
+import {Control, Zoom} from 'ol/control';
 
 @Component({
   selector: 'app-root',
@@ -69,7 +70,11 @@ export class AppComponent implements OnInit {
       view: new View({
         center: olProj.fromLonLat([4.832, 45.758]),
         zoom: 15
-      })
+      }),
+      controls: [
+        new Zoom(),
+        new MyControl(draw),
+      ],
     });
 
     select.on('select', (selectionEvent) => {
@@ -108,5 +113,30 @@ function removeDuplicates(feature: Feature) {
     if (shouldModify && coordinates.length > 2) {
       (geometry as LineString).setCoordinates(newCoordinates);
     }
+  }
+}
+
+
+export class MyControl extends Control {
+  constructor(draw: Draw) {
+    let drawEnabled = false;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ol-control';
+    button.innerHTML = 'Activer l\'ajout';
+    const element = document.createElement('div');
+    element.className = 'ol-feature ol-control';
+    element.appendChild(button);
+    button.addEventListener('click', () => {
+      if (drawEnabled) {
+        console.log((this as Control).getMap().removeInteraction(draw));
+        button.innerHTML = 'Activer l\'ajout';
+      } else {
+        console.log((this as Control).getMap().addInteraction(draw));
+        button.innerHTML = 'Désactiver l\'ajout';
+      }
+      drawEnabled = !drawEnabled;
+    });
+    super({element});
   }
 }
