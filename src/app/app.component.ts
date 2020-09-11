@@ -1,6 +1,5 @@
 import {Component, OnInit} from '@angular/core';
 import GeoJSON from 'ol/format/GeoJSON';
-import {singleClick} from 'ol/events/condition';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import Point from 'ol/geom/Point';
@@ -13,6 +12,7 @@ import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/in
 import {OSM, Vector} from 'ol/source';
 import * as olProj from 'ol/proj';
 import TileLayer from 'ol/layer/Tile';
+import VectorSource from 'ol/source/Vector';
 
 @Component({
   selector: 'app-root',
@@ -31,7 +31,13 @@ export class AppComponent implements OnInit {
     const bellecour = {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}};
     const quais = {type: 'Feature', geometry: {type: 'LineString', coordinates: [[4.841, 45.759], [4.8415, 45.765]]}};
 
-    const source = new Vector();
+    const source = new Vector(
+      // {
+      //   format: new GeoJSON(),
+      //   url: './assets/formes.json'
+      // }
+    );
+
     source.addFeatures(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeatures(bellecour));
     source.addFeatures(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeatures(quais));
 
@@ -49,16 +55,13 @@ export class AppComponent implements OnInit {
       }),
     });
 
-    const snap = new Snap({source});
     const select = new Select({source});
-    // const modify = new Modify({source});
     const draw = new Draw({source, type: 'LineString'});
+    const snap = new Snap({source});
 
     const map = new Map({
       interactions: defaultInteractions().extend([
-        snap,
         select,
-        // modify,
         // draw,
       ]),
       target: 'hotel_map',
@@ -73,6 +76,7 @@ export class AppComponent implements OnInit {
       const features = selectionEvent.target.getFeatures();
       const localModify = new Modify({features});
       map.addInteraction(localModify);
+      map.addInteraction(snap);
       localModify.on('modifyend', () => {
         features.forEach(feature => {
           removeDuplicates(feature);
