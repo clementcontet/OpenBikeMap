@@ -9,7 +9,7 @@ import LineString from 'ol/geom/LineString';
 import Point from 'ol/geom/Point';
 import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import * as sphere from 'ol/sphere';
-import {Control, Zoom} from 'ol/control';
+import {Control, ScaleLine, defaults as defaultControls} from 'ol/control';
 import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/interaction';
 import {OSM} from 'ol/source';
 import VectorSource from 'ol/source/Vector';
@@ -149,10 +149,13 @@ export class AppComponent implements OnInit {
         center: olProj.fromLonLat([4.832, 45.758]),
         zoom: 15
       }),
-      controls: [
-        new Zoom(),
+      controls: defaultControls().extend([
+        new ScaleLine({
+          bar: true,
+          minWidth: 150
+        }),
         new MyControl(draw),
-      ],
+      ])
     });
 
     pathSelect.on('select', (selectionEvent) => {
@@ -266,18 +269,21 @@ export class MyControl extends Control {
     let drawEnabled = false;
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'ol-control';
-    button.innerHTML = 'Activer l\'ajout';
+    button.innerHTML = 'A';
     const element = document.createElement('div');
-    element.className = 'ol-feature ol-control';
+    element.className = 'ol-custom ol-unselectable ol-control';
     element.appendChild(button);
     button.addEventListener('click', () => {
       if (drawEnabled) {
         (this as Control).getMap().removeInteraction(draw);
         button.innerHTML = 'Activer l\'ajout';
+        (this as Control).getMap().removeInteraction(draw);
+        button.innerHTML = 'A';
       } else {
         (this as Control).getMap().addInteraction(draw);
         button.innerHTML = 'Désactiver l\'ajout';
+        (this as Control).getMap().addInteraction(draw);
+        button.innerHTML = 'M';
       }
       drawEnabled = !drawEnabled;
     });
