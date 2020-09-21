@@ -9,7 +9,7 @@ import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import VectorLayer from 'ol/layer/Vector';
 import {Circle as CircleStyle, Fill, Stroke, Style} from 'ol/style';
 import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/interaction';
-import {OSM, Vector} from 'ol/source';
+import {OSM, Cluster} from 'ol/source';
 import * as olProj from 'ol/proj';
 import TileLayer from 'ol/layer/Tile';
 import VectorSource from 'ol/source/Vector';
@@ -32,22 +32,51 @@ export class AppComponent implements OnInit {
     const bellecour = {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}};
     const quais = {type: 'Feature', geometry: {type: 'LineString', coordinates: [[4.841, 45.759], [4.8415, 45.765]]}};
 
-    const source = new Vector(
+    const source = new VectorSource(
       // {
       //   format: new GeoJSON(),
       //   url: './assets/formes.json'
       // }
     );
 
-    source.addFeatures(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeatures(bellecour));
-    source.addFeatures(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeatures(quais));
+    for (let x = 44; x < 46; x = x + 0.1) {
+      for (let y = 3; y < 5; y = y + 0.1) {
+        if (Math.random() > 0.9) {
+          source.addFeature(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeature(
+            {type: 'Feature', geometry: {type: 'Point', coordinates: [y, x]}}
+          ));
+        }
+        // if (Math.random() > 0.9) {
+        //   source.addFeature(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeature(
+        //     {
+        //       type: 'Feature',
+        //       geometry: {
+        //         type: 'LineString',
+        //         coordinates: [
+        //           [y + (-0.1) * Math.random(), x + (-0.1) * Math.random()],
+        //           [y + (-0.1) * Math.random(), x + (-0.1) * Math.random()]
+        //         ]
+        //       }
+        //     }
+        //   ));
+        // }
+      }
+    }
+
+    // source.addFeatures(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeatures(bellecour));
+    // source.addFeatures(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeatures(quais));
 
     source.on('change', e => {
       console.log(`change with number of points : ${source.getFeatures().map(feature => (feature.getGeometry() as SimpleGeometry).getCoordinates().length)}`);
     });
 
-    const vector = new VectorLayer({
+    const clusterSource = new Cluster({
+      distance: 50,
       source,
+    });
+
+    const vector = new VectorLayer({
+      source: clusterSource,
       style: new Style({
         stroke: new Stroke({color: '#ff7900', width: 6}),
         image: new CircleStyle({
