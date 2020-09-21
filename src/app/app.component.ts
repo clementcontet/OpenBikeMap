@@ -14,6 +14,7 @@ import * as olProj from 'ol/proj';
 import TileLayer from 'ol/layer/Tile';
 import VectorSource from 'ol/source/Vector';
 import {Control, Zoom} from 'ol/control';
+import GeometryType from 'ol/geom/GeometryType';
 
 @Component({
   selector: 'app-root',
@@ -85,8 +86,8 @@ export class AppComponent implements OnInit {
       }),
     });
 
-    const select = new Select({source});
-    const draw = new Draw({source, type: 'LineString'});
+    const select = new Select({features: source.getFeaturesCollection()});
+    const draw = new Draw({source, type: GeometryType.LINE_STRING});
     const snap = new Snap({source});
 
     const map = new Map({

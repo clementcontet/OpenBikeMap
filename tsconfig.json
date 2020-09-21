@@ -14,22 +14,10 @@
     "lib": [
       "es2018",
       "dom"
-    ],
-    "allowJs": true,
-    "paths": {
-      "ol": ["node_modules/ol/src"],
-      "ol/*": ["node_modules/ol/src/*"]
-    }
+    ]
   },
   "angularCompilerOptions": {
     "fullTemplateTypeCheck": true,
     "strictInjectionParameters": true
-  },
-  "include": [
-    "**/*.ts",
-    "node_modules/ol/**/*"
-  ],
-  "typeAcquisition": {
-    "exclude": ["ol"]
   }
 }
