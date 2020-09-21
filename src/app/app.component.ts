@@ -6,7 +6,7 @@ import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import Feature from 'ol/Feature';
 import SimpleGeometry from 'ol/geom/SimpleGeometry';
-import VectorLayer from 'ol/layer/Vector';
+import AnimatedCluster from 'ol-ext/layer/AnimatedCluster';
 import {Circle as CircleStyle, Fill, Stroke, Style} from 'ol/style';
 import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/interaction';
 import {OSM, Cluster} from 'ol/source';
@@ -76,7 +76,7 @@ export class AppComponent implements OnInit {
       source,
     });
 
-    const vector = new VectorLayer({
+    const vector = new AnimatedCluster({
       source: clusterSource,
       style: new Style({
         stroke: new Stroke({color: '#ff7900', width: 6}),
