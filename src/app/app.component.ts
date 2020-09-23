@@ -150,10 +150,7 @@ export class AppComponent implements OnInit {
         zoom: 15
       }),
       controls: defaultControls().extend([
-        new ScaleLine({
-          bar: true,
-          minWidth: 150
-        }),
+        new ScaleLine({minWidth: 150}),
         new MyControl(draw),
       ])
     });

@@ -28,7 +28,7 @@
               "src/assets"
             ],
             "styles": [
-              "./node_modules/ol/ol.css",
+              "node_modules/ol/ol.css",
               "src/styles.scss"
             ],
             "scripts": []
@@ -93,7 +93,7 @@
               "src/assets"
             ],
             "styles": [
-              "./node_modules/ol/ol.css",
+              "node_modules/ol/ol.css",
               "src/styles.scss"
             ],
             "scripts": []
