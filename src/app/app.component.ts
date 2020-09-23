@@ -1,5 +1,5 @@
 import {Component, OnInit} from '@angular/core';
-import {createEmpty, extend, Extent} from 'ol/extent';
+import {getCenter} from 'ol/extent';
 import GeoJSON from 'ol/format/GeoJSON';
 import Feature from 'ol/Feature';
 import Map from 'ol/Map';
@@ -11,13 +11,12 @@ import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import * as sphere from 'ol/sphere';
 import {Control, Zoom} from 'ol/control';
 import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/interaction';
-import {OSM, Cluster} from 'ol/source';
+import {OSM} from 'ol/source';
 import VectorSource from 'ol/source/Vector';
 import * as olProj from 'ol/proj';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
-import AnimatedCluster from 'ol-ext/layer/AnimatedCluster';
 
 @Component({
   selector: 'app-root',
@@ -25,24 +24,20 @@ import AnimatedCluster from 'ol-ext/layer/AnimatedCluster';
   styleUrls: ['./app.component.scss']
 })
 
-// From https://openlayers.org/en/latest/examples/draw-and-modify-features.html
-// and https://openlayers.org/en/latest/examples/modify-test.html
-// and https://openlayers.org/workshop/en/vector/geojson.html
-
 export class AppComponent implements OnInit {
   title = 'open-bike-map';
-  private readonly clusterThresholdZoom = 11;
-  private readonly clusterSpacing = 100;
-  // private totalPathsDistance: number;
-  // private totalExtent: Extent;
-  // private averagePathsDensity: number;
   private pathsDetailsSource = new VectorSource();
   private pathsCentersSource = new VectorSource();
-  private clustersSource: Cluster;
+  private readonly countryThresholdZoom = 6;
+  private readonly regionThresholdZoom = 8;
+  private readonly departmentThresholdZoom = 10;
+  private totalPathsDistance: number;
+  private readonly numberOfDepartments = 96;
+  private readonly numberOfRegions = 13;
+  private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#ff7900', width: 2})});
 
   ngOnInit() {
-    // this.totalPathsDistance = 0;
-    // this.totalExtent = createEmpty();
+    this.totalPathsDistance = 0;
 
     // france
     for (let long = -1.4; long < 7.7; long = long + 0.1) {
@@ -88,26 +83,38 @@ export class AppComponent implements OnInit {
       {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}} // bellecour
     ));
 
-    // this.averagePathsDensity = this.totalPathsDistance / getArea(this.totalExtent);
-
     this.pathsDetailsSource.on('change', () => {
       console.log(`change with number of points : ${this.pathsDetailsSource.getFeatures().map(feature => (feature.getGeometry() as SimpleGeometry).getCoordinates().length)}`);
     });
 
-    this.clustersSource = new Cluster({
-      distance: this.clusterSpacing,
-      source: this.pathsCentersSource,
+    const countrySource = new VectorSource({url: 'assets/country.geojson', format: new GeoJSON()});
+    const countryLayer = new VectorLayer({
+      source: countrySource,
+      maxZoom: this.countryThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, null),
     });
 
-    const clustersLayer = new AnimatedCluster({
-      source: this.clustersSource,
-      maxZoom: this.clusterThresholdZoom,
-      style: (clusterFeature: Feature, resolution: number) => this.getClusterStyle(clusterFeature, resolution),
+    const regionSource = new VectorSource({url: 'assets/regions.geojson', format: new GeoJSON()});
+    const averagePathDensityPerRegion = this.totalPathsDistance / this.numberOfRegions;
+    const regionsLayer = new VectorLayer({
+      source: regionSource,
+      minZoom: this.countryThresholdZoom,
+      maxZoom: this.regionThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, averagePathDensityPerRegion),
+    });
+
+    const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: new GeoJSON()});
+    const averagePathDensityPerDepartments = this.totalPathsDistance / this.numberOfDepartments;
+    const departmentsLayer = new VectorLayer({
+      source: departmentsSource,
+      minZoom: this.regionThresholdZoom,
+      maxZoom: this.departmentThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, averagePathDensityPerDepartments),
     });
 
     const pathsLayer = new VectorLayer({
       source: this.pathsDetailsSource,
-      minZoom: this.clusterThresholdZoom,
+      minZoom: this.departmentThresholdZoom,
       style: new Style({
         stroke: new Stroke({color: '#ff7900', width: 6}),
         image: new CircleStyle({
@@ -117,20 +124,26 @@ export class AppComponent implements OnInit {
     });
 
     const pathSelect = new Select({layers: [pathsLayer]});
-    const clusterSelect = new Select({
-      layers: [clustersLayer],
-      condition: (evt => evt.type === 'pointermove' || evt.type === 'singleclick'),
-      style: (clusterFeature: Feature) => this.selectStyleFunction(clusterFeature),
+    const areaSelect = new Select({
+      layers: [countryLayer, regionsLayer, departmentsLayer],
+      condition: (evt => evt.type === 'singleclick'),
+      style: (areaFeature: Feature) => this.getSelectAreaStyle(areaFeature),
     });
     const draw = new Draw({source: this.pathsDetailsSource, type: GeometryType.LINE_STRING});
     const snap = new Snap({source: this.pathsDetailsSource});
 
     const map = new Map({
       target: 'hotel_map',
-      layers: [new TileLayer({source: new OSM()}), clustersLayer, pathsLayer],
+      layers: [
+        new TileLayer({source: new OSM()}),
+        pathsLayer,
+        departmentsLayer,
+        regionsLayer,
+        countryLayer,
+      ],
       interactions: defaultInteractions().extend([
         pathSelect,
-        clusterSelect,
+        areaSelect,
       ]),
       view: new View({
         center: olProj.fromLonLat([4.832, 45.758]),
@@ -167,61 +180,54 @@ export class AppComponent implements OnInit {
       {
         type: 'Feature',
         geometry: {type: 'Point', coordinates: [(longStart + longEnd) / 2, (latStart + latEnd) / 2]},
-        properties: {length: distance}
+        properties: {distance}
       }
     );
+
     this.pathsDetailsSource.addFeature(line);
     this.pathsCentersSource.addFeature(center);
-    // this.totalPathsDistance = this.totalPathsDistance + distance;
-    // extend(this.totalExtent, line.getGeometry().getExtent());
+    this.totalPathsDistance = this.totalPathsDistance + distance;
   }
 
-  // From https://openlayers.org/en/latest/examples/earthquake-clusters.html
-  private getClusterStyle(clusterFeature: Feature, resolution: number): Style {
-    const featuresOfCluster: Feature[] = clusterFeature.get('features');
-    let distance = 0;
-    const clusterExtent: Extent = createEmpty();
-    featuresOfCluster.forEach(feature => {
-      distance = distance + feature.getProperties().length;
-      extend(clusterExtent, feature.getGeometry().getExtent());
-    });
-    // const radius = Math.min(
-    //   this.clusterSpacing / 2,
-    //   Math.max(10,
-    //     Math.sqrt(Math.pow(getWidth(clusterExtent), 2) + Math.pow(getHeight(clusterExtent), 2)) / 2 / resolution));
-    const radius = this.clusterSpacing / 2;
-    // const clusterDensity = distance / getArea(clusterExtent);
-    // const clusterRelativeDensity = clusterDensity / this.averagePathsDensity;
-
-    return new Style({
-      image: new CircleStyle({
-        radius,
-        // fill: new Fill({color: [255, 121, 0, 0.2 + 0.8 * Math.min(clusterRelativeDensity / 5, 1)]}),
-        fill: new Fill({color: '#ff7900b0'}),
-      }),
-      text: new Text({
-        text: `${distance}km`,
-        scale: 1.5,
-        fill: new Fill({color: '#000000'}),
-      }),
-    });
-  }
-
-  private selectStyleFunction(clusterFeature) {
-    const styles = [
+  private getAreaStyle(areaFeature: Feature, averageDensity: number): Style[] {
+    const distance = this.pathsCentersSource.getFeatures()
+      .filter(pathFeature => areaFeature.getGeometry().intersectsCoordinate((pathFeature.getGeometry() as Point).getCoordinates()))
+      .map(pathFeature => pathFeature.getProperties().distance)
+      .reduce((acc, curr) => acc + curr, 0);
+    let circleFill: Fill;
+    if (averageDensity == null) {
+      circleFill = new Fill({color: '#ff7900'});
+    } else {
+      const opacity = 0.2 + 0.8 * Math.min(distance / averageDensity / 2, 1);
+      circleFill = new Fill({color: [255, 7 * 16 + 9, 0, opacity]});
+    }
+    return [
+      this.areaBorderStyle,
       new Style({
+        geometry: new Point(getCenter(areaFeature.getGeometry().getExtent())),
         image: new CircleStyle({
-          radius: this.clusterSpacing / 2,
-          fill: new Fill({color: '#ffffff00'})
+          radius: 40,
+          fill: circleFill,
+        }),
+        text: new Text({
+          text: `${distance}km`,
+          scale: 2,
+          fill: new Fill({color: '#ffffff'}),
         }),
       })];
-    for (const originalFeature of clusterFeature.get('features')) {
-      styles.push(this.createPathPinStyle(originalFeature));
+  }
+
+  private getSelectAreaStyle(areaFeature) {
+    const styles = [this.areaBorderStyle];
+    const pathCenters = this.pathsCentersSource.getFeatures()
+      .filter(pathFeature => areaFeature.getGeometry().intersectsCoordinate((pathFeature.getGeometry() as Point).getCoordinates()));
+    for (const pathCenterFeature of pathCenters) {
+      styles.push(this.getPathPinStyle(pathCenterFeature));
     }
     return styles;
   }
 
-  private createPathPinStyle(feature) {
+  private getPathPinStyle(feature) {
     return new Style({
       geometry: feature.getGeometry(),
       image: new CircleStyle({
@@ -267,10 +273,10 @@ export class MyControl extends Control {
     element.appendChild(button);
     button.addEventListener('click', () => {
       if (drawEnabled) {
-        console.log((this as Control).getMap().removeInteraction(draw));
+        (this as Control).getMap().removeInteraction(draw);
         button.innerHTML = 'Activer l\'ajout';
       } else {
-        console.log((this as Control).getMap().addInteraction(draw));
+        (this as Control).getMap().addInteraction(draw);
         button.innerHTML = 'Désactiver l\'ajout';
       }
       drawEnabled = !drawEnabled;
