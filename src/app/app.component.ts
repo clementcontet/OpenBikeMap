@@ -133,7 +133,7 @@ export class AppComponent implements OnInit {
     const snap = new Snap({source: this.pathsDetailsSource});
 
     const map = new Map({
-      target: 'hotel_map',
+      target: 'bike_map',
       layers: [
         new TileLayer({source: new OSM()}),
         pathsLayer,
