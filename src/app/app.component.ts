@@ -7,7 +7,6 @@ import View from 'ol/View';
 import GeometryType from 'ol/geom/GeometryType';
 import LineString from 'ol/geom/LineString';
 import Point from 'ol/geom/Point';
-import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import * as sphere from 'ol/sphere';
 import {Control, ScaleLine, defaults as defaultControls} from 'ol/control';
 import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/interaction';
@@ -17,6 +16,7 @@ import * as olProj from 'ol/proj';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
+import {AngularFirestore} from '@angular/fire/firestore';
 
 @Component({
   selector: 'app-root',
@@ -34,10 +34,139 @@ export class AppComponent implements OnInit {
   private totalPathsDistance: number;
   private readonly numberOfDepartments = 96;
   private readonly numberOfRegions = 13;
+  private averagePathDensityPerRegion: number;
+  private averagePathDensityPerDepartment: number;
   private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#ff7900', width: 2})});
+  private firestore: AngularFirestore;
+
+  constructor(firestore: AngularFirestore) {
+    this.firestore = firestore;
+  }
 
   ngOnInit() {
+    this.firestore.collection('items').valueChanges()
+      .subscribe(
+        (items: any) => {
+          const featuresCollection = {
+            type: 'FeatureCollection',
+            features: items.map((item: any) => {
+              // Nested array are not supported in Cloud Firestore (yet?)
+              // so 'coordinates' is stored as a dict and we change it back
+              // to an array
+              item.geometry.coordinates = Object.values(item.geometry.coordinates);
+              return item;
+            })
+          };
+          this.pathsDetailsSource.clear();
+          this.pathsDetailsSource.addFeatures(
+            new GeoJSON({featureProjection: 'EPSG:3857'})
+              .readFeatures(featuresCollection));
+        }
+      );
+
+    this.pathsDetailsSource.on('change', () => {
+      // console.log(`change with number of points : ${this.pathsDetailsSource.getFeatures().map(feature => (feature.getGeometry() as SimpleGeometry).getCoordinates().length)}`);
+    });
+
+    const countrySource = new VectorSource({url: 'assets/country.geojson', format: new GeoJSON()});
+    const countryLayer = new VectorLayer({
+      source: countrySource,
+      maxZoom: this.countryThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, null),
+    });
+
+    const regionSource = new VectorSource({url: 'assets/regions.geojson', format: new GeoJSON()});
+    const regionsLayer = new VectorLayer({
+      source: regionSource,
+      minZoom: this.countryThresholdZoom,
+      maxZoom: this.regionThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, this.averagePathDensityPerRegion),
+    });
+
+    const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: new GeoJSON()});
+    const departmentsLayer = new VectorLayer({
+      source: departmentsSource,
+      minZoom: this.regionThresholdZoom,
+      maxZoom: this.departmentThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, this.averagePathDensityPerDepartment),
+    });
+
+    const pathsLayer = new VectorLayer({
+      source: this.pathsDetailsSource,
+      minZoom: this.departmentThresholdZoom,
+      style: new Style({
+        stroke: new Stroke({color: '#ff7900', width: 6}),
+        image: new CircleStyle({
+          radius: 10, fill: new Fill({color: '#ff0000'}),
+        })
+      }),
+    });
+
+    const pathSelect = new Select({layers: [pathsLayer]});
+    const areaSelect = new Select({
+      layers: [countryLayer, regionsLayer, departmentsLayer],
+      condition: (evt => evt.type === 'singleclick'),
+      style: (areaFeature: Feature) => this.getSelectAreaStyle(areaFeature),
+    });
+    const draw = new Draw({source: this.pathsDetailsSource, type: GeometryType.LINE_STRING});
+    const snap = new Snap({source: this.pathsDetailsSource});
+
+    const bikeMap = new Map({
+      target: 'bike_map',
+      layers: [
+        new TileLayer({source: new OSM()}),
+        pathsLayer,
+        departmentsLayer,
+        regionsLayer,
+        countryLayer,
+      ],
+      interactions: defaultInteractions().extend([
+        pathSelect,
+        areaSelect,
+      ]),
+      view: new View({
+        center: olProj.fromLonLat([4.832, 45.758]),
+        zoom: 15
+      }),
+      controls: defaultControls().extend([
+        new ScaleLine({minWidth: 150}),
+        new MyControl(draw),
+      ])
+    });
+
+    pathSelect.on('select', (selectionEvent) => {
+      const features = selectionEvent.target.getFeatures();
+      const localModify = new Modify({features});
+      bikeMap.addInteraction(localModify);
+      bikeMap.addInteraction(snap);
+      localModify.on('modifyend', () => {
+        features.forEach(feature => {
+          this.removeDuplicates(feature);
+        });
+      });
+      localModify.on('error', e => {
+        console.log('Erreur: ' + JSON.stringify(e));
+      });
+    });
+  }
+
+  clearMap() {
+    this.firestore.collection('items').get().subscribe(res => {
+      res.forEach(element => {
+        element.ref.delete();
+      });
+    });
+  }
+
+  initMap() {
     this.totalPathsDistance = 0;
+
+    // bellecour
+    this.firestore.collection('items').add(
+      {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}}
+    );
+    // quais de rhône
+    this.addLine(4.841, 45.759, 4.8415, 45.765);
 
     // france
     for (let long = -1.4; long < 7.7; long = long + 0.1) {
@@ -78,104 +207,12 @@ export class AppComponent implements OnInit {
       }
     }
 
-    this.addLine(4.841, 45.759, 4.8415, 45.765); // quais de rhône
-    this.pathsDetailsSource.addFeatures(new GeoJSON({featureProjection: 'EPSG:3857'}).readFeatures(
-      {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}} // bellecour
-    ));
-
-    this.pathsDetailsSource.on('change', () => {
-      console.log(`change with number of points : ${this.pathsDetailsSource.getFeatures().map(feature => (feature.getGeometry() as SimpleGeometry).getCoordinates().length)}`);
-    });
-
-    const countrySource = new VectorSource({url: 'assets/country.geojson', format: new GeoJSON()});
-    const countryLayer = new VectorLayer({
-      source: countrySource,
-      maxZoom: this.countryThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, null),
-    });
-
-    const regionSource = new VectorSource({url: 'assets/regions.geojson', format: new GeoJSON()});
-    const averagePathDensityPerRegion = this.totalPathsDistance / this.numberOfRegions;
-    const regionsLayer = new VectorLayer({
-      source: regionSource,
-      minZoom: this.countryThresholdZoom,
-      maxZoom: this.regionThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, averagePathDensityPerRegion),
-    });
-
-    const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: new GeoJSON()});
-    const averagePathDensityPerDepartments = this.totalPathsDistance / this.numberOfDepartments;
-    const departmentsLayer = new VectorLayer({
-      source: departmentsSource,
-      minZoom: this.regionThresholdZoom,
-      maxZoom: this.departmentThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, averagePathDensityPerDepartments),
-    });
-
-    const pathsLayer = new VectorLayer({
-      source: this.pathsDetailsSource,
-      minZoom: this.departmentThresholdZoom,
-      style: new Style({
-        stroke: new Stroke({color: '#ff7900', width: 6}),
-        image: new CircleStyle({
-          radius: 10, fill: new Fill({color: '#ff0000'}),
-        })
-      }),
-    });
-
-    const pathSelect = new Select({layers: [pathsLayer]});
-    const areaSelect = new Select({
-      layers: [countryLayer, regionsLayer, departmentsLayer],
-      condition: (evt => evt.type === 'singleclick'),
-      style: (areaFeature: Feature) => this.getSelectAreaStyle(areaFeature),
-    });
-    const draw = new Draw({source: this.pathsDetailsSource, type: GeometryType.LINE_STRING});
-    const snap = new Snap({source: this.pathsDetailsSource});
-
-    const map = new Map({
-      target: 'bike_map',
-      layers: [
-        new TileLayer({source: new OSM()}),
-        pathsLayer,
-        departmentsLayer,
-        regionsLayer,
-        countryLayer,
-      ],
-      interactions: defaultInteractions().extend([
-        pathSelect,
-        areaSelect,
-      ]),
-      view: new View({
-        center: olProj.fromLonLat([4.832, 45.758]),
-        zoom: 15
-      }),
-      controls: defaultControls().extend([
-        new ScaleLine({minWidth: 150}),
-        new MyControl(draw),
-      ])
-    });
-
-    pathSelect.on('select', (selectionEvent) => {
-      const features = selectionEvent.target.getFeatures();
-      const localModify = new Modify({features});
-      map.addInteraction(localModify);
-      map.addInteraction(snap);
-      localModify.on('modifyend', () => {
-        features.forEach(feature => {
-          this.removeDuplicates(feature);
-        });
-      });
-      localModify.on('error', e => {
-        console.log('Erreur: ' + JSON.stringify(e));
-      });
-    });
+    this.averagePathDensityPerRegion = this.totalPathsDistance / this.numberOfRegions;
+    this.averagePathDensityPerDepartment = this.totalPathsDistance / this.numberOfDepartments;
   }
 
   private addLine(longStart: number, latStart: number, longEnd: number, latEnd: number) {
     const distance = Math.round(sphere.getDistance([longStart, latStart], [longEnd, latEnd]) / 1000);
-    const line = new GeoJSON({featureProjection: 'EPSG:3857'}).readFeature(
-      {type: 'Feature', geometry: {type: 'LineString', coordinates: [[longStart, latStart], [longEnd, latEnd]]}}
-    );
     const center = new GeoJSON({featureProjection: 'EPSG:3857'}).readFeature(
       {
         type: 'Feature',
@@ -184,7 +221,15 @@ export class AppComponent implements OnInit {
       }
     );
 
-    this.pathsDetailsSource.addFeature(line);
+    this.firestore.collection('items')
+      .add(
+        {
+          type: 'Feature',
+          // Nested array are not supported in Cloud Firestore (yet?)
+          // so 'coordinates' is stored as a dict
+          geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}}
+        }
+      );
     this.pathsCentersSource.addFeature(center);
     this.totalPathsDistance = this.totalPathsDistance + distance;
   }

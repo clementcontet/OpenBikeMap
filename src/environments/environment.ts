@@ -3,7 +3,16 @@
 // The list of file replacements can be found in `angular.json`.
 
 export const environment = {
-  production: false
+  production: false,
+  firebase: {
+    apiKey: 'AIzaSyCSjGuRAv7PEAGdIsWFgex99wrMvW1yXTM',
+    authDomain: 'open-bike-map.firebaseapp.com',
+    databaseURL: 'https://open-bike-map.firebaseio.com',
+    projectId: 'open-bike-map',
+    storageBucket: 'open-bike-map.appspot.com',
+    messagingSenderId: '377402317727',
+    appId: '1:377402317727:web:89ff93bb137e6bb22fbbaa',
+  }
 };
 
 /*
