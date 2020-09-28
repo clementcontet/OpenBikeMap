@@ -64,8 +64,20 @@ export class AppComponent implements OnInit {
         }
       );
 
+    this.firestore.collection('centers').valueChanges()
+      .subscribe(
+        (items: any) => {
+          const featuresCollection = {type: 'FeatureCollection', features: items};
+          this.pathsCentersSource.clear();
+          this.pathsCentersSource.addFeatures(
+            new GeoJSON({featureProjection: 'EPSG:3857'})
+              .readFeatures(featuresCollection));
+        }
+      );
+
     this.pathsDetailsSource.on('change', () => {
-      // console.log(`change with number of points : ${this.pathsDetailsSource.getFeatures().map(feature => (feature.getGeometry() as SimpleGeometry).getCoordinates().length)}`);
+      // console.log(`change with number of points :${this.pathsDetailsSource.getFeatures()
+      // .map(feature => (feature.getGeometry() as SimpleGeometry).getCoordinates().length)}`);
     });
 
     const countrySource = new VectorSource({url: 'assets/country.geojson', format: new GeoJSON()});
@@ -156,6 +168,12 @@ export class AppComponent implements OnInit {
         element.ref.delete();
       });
     });
+
+    this.firestore.collection('centers').get().subscribe(res => {
+      res.forEach(element => {
+        element.ref.delete();
+      });
+    });
   }
 
   initMap() {
@@ -168,6 +186,7 @@ export class AppComponent implements OnInit {
     // quais de rhône
     this.addLine(4.841, 45.759, 4.8415, 45.765);
 
+    /*
     // france
     for (let long = -1.4; long < 7.7; long = long + 0.1) {
       for (let lat = 43.4; lat < 48.9; lat = lat + 0.1) {
@@ -206,21 +225,14 @@ export class AppComponent implements OnInit {
         }
       }
     }
+    */
 
     this.averagePathDensityPerRegion = this.totalPathsDistance / this.numberOfRegions;
     this.averagePathDensityPerDepartment = this.totalPathsDistance / this.numberOfDepartments;
   }
 
   private addLine(longStart: number, latStart: number, longEnd: number, latEnd: number) {
-    const distance = Math.round(sphere.getDistance([longStart, latStart], [longEnd, latEnd]) / 1000);
-    const center = new GeoJSON({featureProjection: 'EPSG:3857'}).readFeature(
-      {
-        type: 'Feature',
-        geometry: {type: 'Point', coordinates: [(longStart + longEnd) / 2, (latStart + latEnd) / 2]},
-        properties: {distance}
-      }
-    );
-
+    const distance = Math.round(sphere.getDistance([longStart, latStart], [longEnd, latEnd]) / 100) / 10;
     this.firestore.collection('items')
       .add(
         {
@@ -230,7 +242,6 @@ export class AppComponent implements OnInit {
           geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}}
         }
       );
-    this.pathsCentersSource.addFeature(center);
     this.totalPathsDistance = this.totalPathsDistance + distance;
   }
 
@@ -255,7 +266,7 @@ export class AppComponent implements OnInit {
           fill: circleFill,
         }),
         text: new Text({
-          text: `${distance}km`,
+          text: `${Math.round(distance)}km`,
           scale: 2,
           fill: new Fill({color: '#ffffff'}),
         }),
