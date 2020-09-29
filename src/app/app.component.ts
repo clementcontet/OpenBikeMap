@@ -11,13 +11,16 @@ import * as sphere from 'ol/sphere';
 import {Control, ScaleLine, defaults as defaultControls} from 'ol/control';
 import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/interaction';
 import {OSM} from 'ol/source';
-import VectorSource from 'ol/source/Vector';
+import VectorSource, {VectorSourceEvent} from 'ol/source/Vector';
 import * as olProj from 'ol/proj';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
 import {AngularFirestore} from '@angular/fire/firestore';
 import {DocumentChangeAction} from '@angular/fire/firestore/interfaces';
+import {SelectEvent} from 'ol/interaction/Select';
+import {DrawEvent} from 'ol/interaction/Draw';
+import {ModifyEvent} from 'ol/interaction/Modify';
 
 @Component({
   selector: 'app-root',
@@ -45,28 +48,25 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.firestore.collection('items').snapshotChanges()
+    this.firestore.collection('items').stateChanges()
       .subscribe(
         (items: DocumentChangeAction<any>[]) => {
-          const featuresCollection = {
-            type: 'FeatureCollection',
-            features: items.map((item: DocumentChangeAction<any>) => {
-              const feature = item.payload.doc.data();
-              if (feature.properties === undefined) {
-                feature.properties = {};
-              }
-              feature.properties.firestoreId = item.payload.doc.id;
-              // Nested array are not supported in Cloud Firestore (yet?)
-              // so 'coordinates' is stored as a dict and we change it back
-              // to an array
-              feature.geometry.coordinates = Object.values(feature.geometry.coordinates);
-              return feature;
-            })
-          };
-          this.pathsDetailsSource.clear();
-          this.pathsDetailsSource.addFeatures(
-            new GeoJSON({featureProjection: 'EPSG:3857'})
-              .readFeatures(featuresCollection));
+          this.removeFeatures(items.filter(item => item.payload.type === 'removed'));
+
+          const addedItems = items.filter(item => item.payload.type === 'added');
+          if (addedItems.length > 0) {
+            this.pathsDetailsSource.addFeatures(
+              new GeoJSON({featureProjection: 'EPSG:3857'})
+                .readFeatures(this.getFeaturesCollection(addedItems)));
+          }
+
+          const modifiedItems = items.filter(item => item.payload.type === 'modified');
+          if (modifiedItems.length > 0) {
+            this.removeFeatures(modifiedItems);
+            this.pathsDetailsSource.addFeatures(
+              new GeoJSON({featureProjection: 'EPSG:3857'})
+                .readFeatures(this.getFeaturesCollection(modifiedItems)));
+          }
         }
       );
 
@@ -80,11 +80,6 @@ export class AppComponent implements OnInit {
               .readFeatures(featuresCollection));
         }
       );
-
-    this.pathsDetailsSource.on('change', () => {
-      // console.log(`change with number of points :${this.pathsDetailsSource.getFeatures()
-      // .map(feature => (feature.getGeometry() as SimpleGeometry).getCoordinates().length)}`);
-    });
 
     const countrySource = new VectorSource({url: 'assets/country.geojson', format: new GeoJSON()});
     const countryLayer = new VectorLayer({
@@ -121,6 +116,7 @@ export class AppComponent implements OnInit {
     });
 
     const pathSelect = new Select({layers: [pathsLayer]});
+    const modify = new Modify({features: pathSelect.getFeatures()});
     const areaSelect = new Select({
       layers: [countryLayer, regionsLayer, departmentsLayer],
       condition: (evt => evt.type === 'singleclick'),
@@ -141,6 +137,8 @@ export class AppComponent implements OnInit {
       interactions: defaultInteractions().extend([
         pathSelect,
         areaSelect,
+        modify,
+        snap
       ]),
       view: new View({
         center: olProj.fromLonLat([4.832, 45.758]),
@@ -152,7 +150,7 @@ export class AppComponent implements OnInit {
       ])
     });
 
-    pathSelect.on('select', (selectionEvent) => {
+    pathSelect.on('select', (selectionEvent: SelectEvent) => {
       selectionEvent.deselected.forEach(feature => {
         const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
         if (geometry.getType() === 'LineString' && feature.getProperties().modified) {
@@ -168,21 +166,65 @@ export class AppComponent implements OnInit {
             );
         }
       });
+    });
 
-      const features = selectionEvent.target.getFeatures();
-      const modify = new Modify({features});
-      bikeMap.addInteraction(modify);
-      bikeMap.addInteraction(snap);
-      modify.on('modifyend', () => {
-        features.forEach(feature => {
-          feature.setProperties({modified: true});
-          this.removeDuplicates(feature);
-        });
-      });
-      modify.on('error', e => {
-        console.log('Erreur: ' + JSON.stringify(e));
+    modify.on('modifyend', (modifyEvent: ModifyEvent) => {
+      modifyEvent.features.forEach(feature => {
+        feature.setProperties({modified: true});
+        this.removeDuplicates(feature);
       });
     });
+
+    draw.on('drawend', (drawEvent: DrawEvent) => {
+        const geometry = drawEvent.feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
+        const coordinates = (geometry as LineString).getCoordinates();
+        this.firestore.collection('items')
+          .add(
+            {
+              type: 'Feature',
+              // Nested array are not supported in Cloud Firestore (yet?)
+              // so 'coordinates' is stored as a dict
+              geometry: {type: 'LineString', coordinates: Object.assign({}, coordinates)}// https://stackoverflow.com/a/36388401
+            }
+          );
+      }
+    );
+
+    // Immediately remove added features if they were added by "draw" interaction (not Firestore)
+    this.pathsDetailsSource.on('addfeature', (vectorSourceEvent: VectorSourceEvent) => {
+      if (!vectorSourceEvent.feature.getProperties().addedByFirestore) {
+        this.pathsDetailsSource.removeFeature(vectorSourceEvent.feature);
+      }
+    });
+  }
+
+  private removeFeatures(items: DocumentChangeAction<any>[]) {
+    items.forEach(item => {
+      const featureToRemove = this.pathsDetailsSource.getFeatures()
+        .filter(feature => feature.getProperties().firestoreId === item.payload.doc.id);
+      if (featureToRemove.length === 1) {
+        this.pathsDetailsSource.removeFeature(featureToRemove[0]);
+      }
+    });
+  }
+
+  private getFeaturesCollection(items: DocumentChangeAction<any>[]) {
+    return {
+      type: 'FeatureCollection',
+      features: items.map((item: DocumentChangeAction<any>) => {
+        const feature = item.payload.doc.data();
+        if (feature.properties === undefined) {
+          feature.properties = {};
+        }
+        feature.properties.firestoreId = item.payload.doc.id;
+        feature.properties.addedByFirestore = true;
+        // Nested array are not supported in Cloud Firestore (yet?)
+        // so 'coordinates' is stored as a dict and we change it back
+        // to an array
+        feature.geometry.coordinates = Object.values(feature.geometry.coordinates);
+        return feature;
+      })
+    };
   }
 
   clearMap() {
