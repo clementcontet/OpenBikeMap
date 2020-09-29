@@ -17,6 +17,7 @@ import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
 import {AngularFirestore} from '@angular/fire/firestore';
+import {DocumentChangeAction} from '@angular/fire/firestore/interfaces';
 
 @Component({
   selector: 'app-root',
@@ -44,17 +45,22 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.firestore.collection('items').valueChanges()
+    this.firestore.collection('items').snapshotChanges()
       .subscribe(
-        (items: any) => {
+        (items: DocumentChangeAction<any>[]) => {
           const featuresCollection = {
             type: 'FeatureCollection',
-            features: items.map((item: any) => {
+            features: items.map((item: DocumentChangeAction<any>) => {
+              const feature = item.payload.doc.data();
+              if (feature.properties === undefined) {
+                feature.properties = {};
+              }
+              feature.properties.firestoreId = item.payload.doc.id;
               // Nested array are not supported in Cloud Firestore (yet?)
               // so 'coordinates' is stored as a dict and we change it back
               // to an array
-              item.geometry.coordinates = Object.values(item.geometry.coordinates);
-              return item;
+              feature.geometry.coordinates = Object.values(feature.geometry.coordinates);
+              return feature;
             })
           };
           this.pathsDetailsSource.clear();
@@ -147,16 +153,33 @@ export class AppComponent implements OnInit {
     });
 
     pathSelect.on('select', (selectionEvent) => {
+      selectionEvent.deselected.forEach(feature => {
+        const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
+        if (geometry.getType() === 'LineString' && feature.getProperties().modified) {
+          feature.getProperties().modified = false;
+          const coordinates = (geometry as LineString).getCoordinates();
+          this.firestore.collection('items').doc(feature.getProperties().firestoreId)
+            .update(
+              {
+                // Nested array are not supported in Cloud Firestore (yet?)
+                // so 'coordinates' is stored as a dict
+                geometry: {type: 'LineString', coordinates: Object.assign({}, coordinates)}// https://stackoverflow.com/a/36388401
+              }
+            );
+        }
+      });
+
       const features = selectionEvent.target.getFeatures();
-      const localModify = new Modify({features});
-      bikeMap.addInteraction(localModify);
+      const modify = new Modify({features});
+      bikeMap.addInteraction(modify);
       bikeMap.addInteraction(snap);
-      localModify.on('modifyend', () => {
+      modify.on('modifyend', () => {
         features.forEach(feature => {
+          feature.setProperties({modified: true});
           this.removeDuplicates(feature);
         });
       });
-      localModify.on('error', e => {
+      modify.on('error', e => {
         console.log('Erreur: ' + JSON.stringify(e));
       });
     });
