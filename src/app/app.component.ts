@@ -17,7 +17,7 @@ import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
 import {AngularFirestore} from '@angular/fire/firestore';
-import {DocumentChangeAction} from '@angular/fire/firestore/interfaces';
+import {DocumentChangeAction, QueryDocumentSnapshot} from '@angular/fire/firestore/interfaces';
 import {SelectEvent} from 'ol/interaction/Select';
 import {DrawEvent} from 'ol/interaction/Draw';
 import {ModifyEvent} from 'ol/interaction/Modify';
@@ -33,6 +33,8 @@ import {never} from 'ol/events/condition';
 
 export class AppComponent implements OnInit {
   title = 'open-bike-map';
+  panelOpened = false;
+  private bikeMap: Map;
   private pathsDetailsSource = new VectorSource();
   private pathsCentersSource = new VectorSource();
   private readonly countryThresholdZoom = 6;
@@ -40,6 +42,7 @@ export class AppComponent implements OnInit {
   private readonly departmentThresholdZoom = 10;
   private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#ff7900', width: 2})});
   private firestore: AngularFirestore;
+  private readonly geoJson = new GeoJSON({featureProjection: 'EPSG:3857'});
 
   constructor(firestore: AngularFirestore) {
     this.firestore = firestore;
@@ -54,16 +57,14 @@ export class AppComponent implements OnInit {
           const addedItems = items.filter(item => item.payload.type === 'added');
           if (addedItems.length > 0) {
             this.pathsDetailsSource.addFeatures(
-              new GeoJSON({featureProjection: 'EPSG:3857'})
-                .readFeatures(this.getFeaturesCollection(addedItems)));
+              this.geoJson.readFeatures(this.getFeaturesCollection(addedItems)));
           }
 
           const modifiedItems = items.filter(item => item.payload.type === 'modified');
           if (modifiedItems.length > 0) {
             this.removeFeatures(modifiedItems);
             this.pathsDetailsSource.addFeatures(
-              new GeoJSON({featureProjection: 'EPSG:3857'})
-                .readFeatures(this.getFeaturesCollection(modifiedItems)));
+              this.geoJson.readFeatures(this.getFeaturesCollection(modifiedItems)));
           }
         }
       );
@@ -74,19 +75,18 @@ export class AppComponent implements OnInit {
           const featuresCollection = {type: 'FeatureCollection', features: items};
           this.pathsCentersSource.clear();
           this.pathsCentersSource.addFeatures(
-            new GeoJSON({featureProjection: 'EPSG:3857'})
-              .readFeatures(featuresCollection));
+            this.geoJson.readFeatures(featuresCollection));
         }
       );
 
-    const countrySource = new VectorSource({url: 'assets/country.geojson', format: new GeoJSON()});
+    const countrySource = new VectorSource({url: 'assets/country.geojson', format: this.geoJson});
     const countryLayer = new VectorLayer({
       source: countrySource,
       maxZoom: this.countryThresholdZoom,
       style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, true),
     });
 
-    const regionSource = new VectorSource({url: 'assets/regions.geojson', format: new GeoJSON()});
+    const regionSource = new VectorSource({url: 'assets/regions.geojson', format: this.geoJson});
     const regionsLayer = new VectorLayer({
       source: regionSource,
       minZoom: this.countryThresholdZoom,
@@ -94,7 +94,7 @@ export class AppComponent implements OnInit {
       style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
     });
 
-    const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: new GeoJSON()});
+    const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: this.geoJson});
     const departmentsLayer = new VectorLayer({
       source: departmentsSource,
       minZoom: this.regionThresholdZoom,
@@ -126,7 +126,7 @@ export class AppComponent implements OnInit {
     const draw = new Draw({source: this.pathsDetailsSource, type: GeometryType.LINE_STRING});
     const snap = new Snap({source: this.pathsDetailsSource});
 
-    const bikeMap = new Map({
+    this.bikeMap = new Map({
       target: 'bike_map',
       layers: [
         new TileLayer({source: new OSM()}),
@@ -152,9 +152,11 @@ export class AppComponent implements OnInit {
     });
 
     pathSelect.on('select', (selectionEvent: SelectEvent) => {
+      this.panelOpened = selectionEvent.selected.length === 1;
+
       selectionEvent.deselected.forEach(feature => {
         const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
-        if (geometry.getType() === 'LineString' && feature.getProperties().modified) {
+        if (geometry.getType() === 'LineString' && feature.getProperties().modified && !feature.getProperties().cancelled) {
           feature.getProperties().modified = false;
           const coordinates = (geometry as LineString).getCoordinates();
           this.firestore.collection('items').doc(feature.getProperties().firestoreId)
@@ -174,6 +176,10 @@ export class AppComponent implements OnInit {
         feature.setProperties({modified: true});
         this.removeDuplicates(feature);
       });
+    });
+
+    draw.on('drawstart', (drawEvent: DrawEvent) => {
+      this.panelOpened = true;
     });
 
     draw.on('drawend', (drawEvent: DrawEvent) => {
@@ -213,19 +219,23 @@ export class AppComponent implements OnInit {
     return {
       type: 'FeatureCollection',
       features: items.map((item: DocumentChangeAction<any>) => {
-        const feature = item.payload.doc.data();
-        if (feature.properties === undefined) {
-          feature.properties = {};
-        }
-        feature.properties.firestoreId = item.payload.doc.id;
-        feature.properties.addedByFirestore = true;
-        // Nested array are not supported in Cloud Firestore (yet?)
-        // so 'coordinates' is stored as a dict and we change it back
-        // to an array
-        feature.geometry.coordinates = Object.values(feature.geometry.coordinates);
-        return feature;
+        return this.getFeature(item.payload.doc);
       })
     };
+  }
+
+  private getFeature(doc: QueryDocumentSnapshot<any>) {
+    const feature = doc.data();
+    if (feature.properties === undefined) {
+      feature.properties = {};
+    }
+    feature.properties.firestoreId = doc.id;
+    feature.properties.addedByFirestore = true;
+    // Nested array are not supported in Cloud Firestore (yet?)
+    // so 'coordinates' is stored as a dict and we change it back
+    // to an array
+    feature.geometry.coordinates = Object.values(feature.geometry.coordinates);
+    return feature;
   }
 
   clearMap() {
@@ -356,6 +366,30 @@ export class AppComponent implements OnInit {
         (geometry as LineString).setCoordinates(newCoordinates);
       }
     }
+  }
+
+  cancelInteraction() {
+    this.bikeMap.getInteractions().forEach(interaction => {
+      if (interaction instanceof Draw) {
+        interaction.abortDrawing();
+      } else if (interaction instanceof Select) {
+        if (interaction.getFeatures().getLength() === 1) {
+          const cancelledFeature = interaction.getFeatures().getArray()[0];
+          this.firestore.collection('items').doc(cancelledFeature.getProperties().firestoreId)
+            .get()
+            .subscribe(item => {
+                this.pathsDetailsSource.removeFeature(cancelledFeature);
+                this.pathsDetailsSource.addFeature(
+                  this.geoJson.readFeature(this.getFeature(item))
+                );
+              }
+            );
+        }
+        interaction.getFeatures().clear();
+        this.bikeMap.render();
+      }
+      this.panelOpened = false;
+    });
   }
 }
 

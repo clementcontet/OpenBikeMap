@@ -1,5 +1,18 @@
-<div class="row">
-  <div id="bike_map"></div>
-</div>
-<button (click)="clearMap()">clear map</button>
-<button (click)="initMap()">init map</button>
+<mat-sidenav-container>
+  <mat-sidenav mode="side" position="end" [(opened)]="panelOpened">
+    <button mat-flat-button color="primary" (click)="cancelInteraction()">Annuler</button>
+    <mat-card>
+      Coolitude ?<br/>
+      <mat-slider thumbLabel min="1" max="5" step="1" value="3"></mat-slider>
+    </mat-card>
+
+  </mat-sidenav>
+  <mat-sidenav-content>
+    <div class="row">
+      <div id="bike_map"></div>
+    </div>
+    <button (click)="clearMap()">clear map</button>
+    <button (click)="initMap()">init map</button>
+  </mat-sidenav-content>
+</mat-sidenav-container>
+
