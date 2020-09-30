@@ -23,6 +23,7 @@ import {DrawEvent} from 'ol/interaction/Draw';
 import {ModifyEvent} from 'ol/interaction/Modify';
 import Geometry from 'ol/geom/Geometry';
 import Heatmap from 'ol/layer/Heatmap';
+import {never} from 'ol/events/condition';
 
 @Component({
   selector: 'app-root',
@@ -117,7 +118,10 @@ export class AppComponent implements OnInit {
       }),
     });
 
-    const pathSelect = new Select({layers: [pathsLayer]});
+    const pathSelect = new Select({
+      layers: [pathsLayer],
+      toggleCondition: never,
+    });
     const modify = new Modify({features: pathSelect.getFeatures()});
     const draw = new Draw({source: this.pathsDetailsSource, type: GeometryType.LINE_STRING});
     const snap = new Snap({source: this.pathsDetailsSource});
