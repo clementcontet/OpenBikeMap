@@ -22,6 +22,7 @@ import {SelectEvent} from 'ol/interaction/Select';
 import {DrawEvent} from 'ol/interaction/Draw';
 import {ModifyEvent} from 'ol/interaction/Modify';
 import Geometry from 'ol/geom/Geometry';
+import Heatmap from 'ol/layer/Heatmap';
 
 @Component({
   selector: 'app-root',
@@ -36,11 +37,6 @@ export class AppComponent implements OnInit {
   private readonly countryThresholdZoom = 6;
   private readonly regionThresholdZoom = 8;
   private readonly departmentThresholdZoom = 10;
-  private totalPathsDistance: number;
-  private readonly numberOfDepartments = 102;
-  private readonly numberOfRegions = 19;
-  private averagePathDensityPerRegion: number;
-  private averagePathDensityPerDepartment: number;
   private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#ff7900', width: 2})});
   private firestore: AngularFirestore;
 
@@ -86,7 +82,7 @@ export class AppComponent implements OnInit {
     const countryLayer = new VectorLayer({
       source: countrySource,
       maxZoom: this.countryThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, null),
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, true),
     });
 
     const regionSource = new VectorSource({url: 'assets/regions.geojson', format: new GeoJSON()});
@@ -94,7 +90,7 @@ export class AppComponent implements OnInit {
       source: regionSource,
       minZoom: this.countryThresholdZoom,
       maxZoom: this.regionThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, this.averagePathDensityPerRegion),
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
     });
 
     const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: new GeoJSON()});
@@ -102,7 +98,12 @@ export class AppComponent implements OnInit {
       source: departmentsSource,
       minZoom: this.regionThresholdZoom,
       maxZoom: this.departmentThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, this.averagePathDensityPerDepartment),
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
+    });
+    const heatLayer = new Heatmap({
+      source: this.pathsCentersSource,
+      maxZoom: this.departmentThresholdZoom,
+      weight: feature => feature.getProperties().distance,
     });
 
     const pathsLayer = new VectorLayer({
@@ -118,11 +119,6 @@ export class AppComponent implements OnInit {
 
     const pathSelect = new Select({layers: [pathsLayer]});
     const modify = new Modify({features: pathSelect.getFeatures()});
-    const areaSelect = new Select({
-      layers: [countryLayer, regionsLayer, departmentsLayer],
-      condition: (evt => evt.type === 'singleclick'),
-      style: (areaFeature: Feature) => this.getSelectAreaStyle(areaFeature),
-    });
     const draw = new Draw({source: this.pathsDetailsSource, type: GeometryType.LINE_STRING});
     const snap = new Snap({source: this.pathsDetailsSource});
 
@@ -131,13 +127,13 @@ export class AppComponent implements OnInit {
       layers: [
         new TileLayer({source: new OSM()}),
         pathsLayer,
+        heatLayer,
         departmentsLayer,
         regionsLayer,
         countryLayer,
       ],
       interactions: defaultInteractions().extend([
         pathSelect,
-        areaSelect,
         modify,
         snap
       ]),
@@ -243,8 +239,6 @@ export class AppComponent implements OnInit {
   }
 
   initMap() {
-    this.totalPathsDistance = 0;
-
     // bellecour
     this.firestore.collection('items').add(
       {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}}
@@ -292,9 +286,6 @@ export class AppComponent implements OnInit {
       }
     }
     */
-
-    this.averagePathDensityPerRegion = this.totalPathsDistance / this.numberOfRegions;
-    this.averagePathDensityPerDepartment = this.totalPathsDistance / this.numberOfDepartments;
   }
 
   private addLine(longStart: number, latStart: number, longEnd: number, latEnd: number) {
@@ -308,29 +299,21 @@ export class AppComponent implements OnInit {
           geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}}
         }
       );
-    this.totalPathsDistance = this.totalPathsDistance + distance;
   }
 
-  private getAreaStyle(areaFeature: Feature, averageDensity: number): Style[] {
+  private getAreaStyle(areaFeature: Feature, isFrance: boolean): Style[] {
     const distance = this.pathsCentersSource.getFeatures()
       .filter(pathFeature => areaFeature.getGeometry().intersectsCoordinate((pathFeature.getGeometry() as Point).getCoordinates()))
       .map(pathFeature => pathFeature.getProperties().distance)
       .reduce((acc, curr) => acc + curr, 0);
-    let circleFill: Fill;
-    if (averageDensity == null) {
-      circleFill = new Fill({color: '#ff7900'});
-    } else {
-      const opacity = 0.2 + 0.8 * Math.min(distance / averageDensity / 2, 1);
-      circleFill = new Fill({color: [255, 7 * 16 + 9, 0, opacity]});
-    }
 
     let areaCenter: Geometry;
-    if (averageDensity !== null) {
-      areaCenter = new Point(getCenter(areaFeature.getGeometry().getExtent()));
-    } else {
+    if (isFrance) {
       // https://fr.wikipedia.org/wiki/Centre_de_la_France
-      areaCenter = new Point([2 + (25 + 0 / 60) / 60 , 46 + (45 + 7 / 60) / 60])
+      areaCenter = new Point([2 + (25 + 0 / 60) / 60, 46 + (45 + 7 / 60) / 60])
         .transform('EPSG:4326', 'EPSG:3857');
+    } else {
+      areaCenter = new Point(getCenter(areaFeature.getGeometry().getExtent()));
     }
 
     return [
@@ -338,8 +321,8 @@ export class AppComponent implements OnInit {
       new Style({
         geometry: areaCenter,
         image: new CircleStyle({
-          radius: 40,
-          fill: circleFill,
+          radius: 50,
+          fill: new Fill({color: '#ff790080'}),
         }),
         text: new Text({
           text: `${Math.round(distance)}km`,
@@ -347,27 +330,6 @@ export class AppComponent implements OnInit {
           fill: new Fill({color: '#ffffff'}),
         }),
       })];
-  }
-
-  private getSelectAreaStyle(areaFeature) {
-    const styles = [this.areaBorderStyle];
-    const pathCenters = this.pathsCentersSource.getFeatures()
-      .filter(pathFeature => areaFeature.getGeometry().intersectsCoordinate((pathFeature.getGeometry() as Point).getCoordinates()));
-    for (const pathCenterFeature of pathCenters) {
-      styles.push(this.getPathPinStyle(pathCenterFeature));
-    }
-    return styles;
-  }
-
-  private getPathPinStyle(feature) {
-    return new Style({
-      geometry: feature.getGeometry(),
-      image: new CircleStyle({
-        radius: 5, fill: new Fill({color: '#ff7900'}),
-      }),
-      fill: new Fill({color: '#ff7900'}),
-      stroke: new Stroke({color: '#ff0000'}),
-    });
   }
 
   private removeDuplicates(feature: Feature) {
