@@ -1,3 +1,8 @@
+Cartes France, Régions et Département issues de https://github.com/gregoiredavid/france-geojson
+
+puis resimplifiées avec https://github.com/mbloch/mapshaper :
+` mapshaper -i metropole-et-outre-mer.geojson snap -proj wgs84 -simplify 25% weighted keep-shapes -o format=geojson precision=0.0001 country.geojson
+`
 # OpenBikeMap
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 9.1.9.

@@ -21,6 +21,7 @@ import {DocumentChangeAction} from '@angular/fire/firestore/interfaces';
 import {SelectEvent} from 'ol/interaction/Select';
 import {DrawEvent} from 'ol/interaction/Draw';
 import {ModifyEvent} from 'ol/interaction/Modify';
+import Geometry from 'ol/geom/Geometry';
 
 @Component({
   selector: 'app-root',
@@ -36,8 +37,8 @@ export class AppComponent implements OnInit {
   private readonly regionThresholdZoom = 8;
   private readonly departmentThresholdZoom = 10;
   private totalPathsDistance: number;
-  private readonly numberOfDepartments = 96;
-  private readonly numberOfRegions = 13;
+  private readonly numberOfDepartments = 102;
+  private readonly numberOfRegions = 19;
   private averagePathDensityPerRegion: number;
   private averagePathDensityPerDepartment: number;
   private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#ff7900', width: 2})});
@@ -322,10 +323,20 @@ export class AppComponent implements OnInit {
       const opacity = 0.2 + 0.8 * Math.min(distance / averageDensity / 2, 1);
       circleFill = new Fill({color: [255, 7 * 16 + 9, 0, opacity]});
     }
+
+    let areaCenter: Geometry;
+    if (averageDensity !== null) {
+      areaCenter = new Point(getCenter(areaFeature.getGeometry().getExtent()));
+    } else {
+      // https://fr.wikipedia.org/wiki/Centre_de_la_France
+      areaCenter = new Point([2 + (25 + 0 / 60) / 60 , 46 + (45 + 7 / 60) / 60])
+        .transform('EPSG:4326', 'EPSG:3857');
+    }
+
     return [
       this.areaBorderStyle,
       new Style({
-        geometry: new Point(getCenter(areaFeature.getGeometry().getExtent())),
+        geometry: areaCenter,
         image: new CircleStyle({
           radius: 40,
           fill: circleFill,
