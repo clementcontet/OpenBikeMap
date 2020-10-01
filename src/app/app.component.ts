@@ -183,6 +183,7 @@ export class AppComponent implements OnInit {
     });
 
     draw.on('drawend', (drawEvent: DrawEvent) => {
+        this.panelOpened = false;
         const geometry = drawEvent.feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
         const coordinates = (geometry as LineString).getCoordinates();
         this.firestore.collection('items')
