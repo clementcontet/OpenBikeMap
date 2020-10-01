@@ -40,7 +40,7 @@ export class AppComponent implements OnInit {
   private readonly countryThresholdZoom = 6;
   private readonly regionThresholdZoom = 8;
   private readonly departmentThresholdZoom = 10;
-  private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#ff7900', width: 2})});
+  private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#333', width: 1})});
   private firestore: AngularFirestore;
   private readonly geoJson = new GeoJSON({featureProjection: 'EPSG:3857'});
 
@@ -105,6 +105,7 @@ export class AppComponent implements OnInit {
       source: this.pathsCentersSource,
       maxZoom: this.departmentThresholdZoom,
       weight: feature => feature.getProperties().distance,
+      gradient:  ['#fff', '#ff7900']
     });
 
     const pathsLayer = new VectorLayer({
@@ -335,14 +336,11 @@ export class AppComponent implements OnInit {
       this.areaBorderStyle,
       new Style({
         geometry: areaCenter,
-        image: new CircleStyle({
-          radius: 50,
-          fill: new Fill({color: '#ff790080'}),
-        }),
         text: new Text({
+          font: '1.5em bold Helvetica, sans-serif',
           text: `${Math.round(distance)}km`,
-          scale: 2,
-          fill: new Fill({color: '#ffffff'}),
+          fill: new Fill({color: '#fff  '}),
+          stroke: new Stroke({color: '#000', width: 4}),
         }),
       })];
   }
@@ -387,7 +385,7 @@ export class AppComponent implements OnInit {
             );
         }
         interaction.getFeatures().clear();
-        this.bikeMap.render();
+        this.bikeMap.render(); // strangely doesn't work without that
       }
       this.panelOpened = false;
     });
