@@ -1,6 +1,6 @@
 <mat-sidenav-container>
-  <mat-sidenav mode="side" position="end" [(opened)]="panelOpened">
-    <button mat-flat-button color="primary" (click)="cancelInteraction()">Annuler</button>
+  <mat-sidenav mode="side" position="end" [(opened)]="pathSelected">
+    <button mat-flat-button color="primary" (click)="disableSelect()">Annuler</button>
     <mat-card>
       Coolitude ?<br/>
       <mat-slider thumbLabel min="1" max="5" step="1" value="3"></mat-slider>
@@ -8,8 +8,21 @@
 
   </mat-sidenav>
   <mat-sidenav-content>
-    <div class="row">
-      <div id="bike_map"></div>
+    <div id="bike_map">
+      <button id="enable_draw"
+              *ngIf="!drawEnabled && !pathSelected"
+              mat-flat-button
+              color="primary"
+              (click)="enableDraw()">
+        Ajouter un chemin
+      </button>
+      <button id="disable_draw"
+              *ngIf="drawEnabled && !pathSelected"
+              mat-flat-button
+              color="primary"
+              (click)="disableDraw()">
+        Annuler l'ajout
+      </button>
     </div>
     <button (click)="clearMap()">clear map</button>
     <button (click)="initMap()">init map</button>

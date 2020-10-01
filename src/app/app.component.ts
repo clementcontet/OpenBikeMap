@@ -33,8 +33,11 @@ import {never} from 'ol/events/condition';
 
 export class AppComponent implements OnInit {
   title = 'open-bike-map';
-  panelOpened = false;
+  drawEnabled = false;
+  pathSelected = false;
   private bikeMap: Map;
+  private draw: Draw;
+  private select: Select;
   private pathsDetailsSource = new VectorSource();
   private pathsCentersSource = new VectorSource();
   private readonly countryThresholdZoom = 6;
@@ -105,7 +108,7 @@ export class AppComponent implements OnInit {
       source: this.pathsCentersSource,
       maxZoom: this.departmentThresholdZoom,
       weight: feature => feature.getProperties().distance,
-      gradient:  ['#fff', '#ff7900']
+      gradient: ['#fff', '#ff7900']
     });
 
     const pathsLayer = new VectorLayer({
@@ -119,13 +122,16 @@ export class AppComponent implements OnInit {
       }),
     });
 
-    const pathSelect = new Select({
-      layers: [pathsLayer],
-      toggleCondition: never,
+    this.select = new Select({layers: [pathsLayer], toggleCondition: never});
+    const modify = new Modify({features: this.select.getFeatures()});
+    this.draw = new Draw({
+      source: this.pathsDetailsSource,
+      type: GeometryType.LINE_STRING,
+      stopClick: true,
+      // condition: (e) => e.type === 'singleclick',
     });
-    const modify = new Modify({features: pathSelect.getFeatures()});
-    const draw = new Draw({source: this.pathsDetailsSource, type: GeometryType.LINE_STRING});
     const snap = new Snap({source: this.pathsDetailsSource});
+    this.disableDraw();
 
     this.bikeMap = new Map({
       target: 'bike_map',
@@ -138,22 +144,20 @@ export class AppComponent implements OnInit {
         countryLayer,
       ],
       interactions: defaultInteractions().extend([
-        pathSelect,
+        this.select,
         modify,
+        this.draw,
         snap
       ]),
       view: new View({
         center: olProj.fromLonLat([4.832, 45.758]),
         zoom: 15
       }),
-      controls: defaultControls().extend([
-        new ScaleLine({minWidth: 150}),
-        new MyControl(draw),
-      ])
+      controls: defaultControls().extend([new ScaleLine({minWidth: 150})])
     });
 
-    pathSelect.on('select', (selectionEvent: SelectEvent) => {
-      this.panelOpened = selectionEvent.selected.length === 1;
+    this.select.on('select', (selectionEvent: SelectEvent) => {
+      this.pathSelected = selectionEvent.selected.length === 1;
 
       selectionEvent.deselected.forEach(feature => {
         const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
@@ -179,12 +183,8 @@ export class AppComponent implements OnInit {
       });
     });
 
-    draw.on('drawstart', (drawEvent: DrawEvent) => {
-      this.panelOpened = true;
-    });
-
-    draw.on('drawend', (drawEvent: DrawEvent) => {
-        this.panelOpened = false;
+    this.draw.on('drawend', (drawEvent: DrawEvent) => {
+        this.disableDraw();
         const geometry = drawEvent.feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
         const coordinates = (geometry as LineString).getCoordinates();
         this.firestore.collection('items')
@@ -367,54 +367,33 @@ export class AppComponent implements OnInit {
     }
   }
 
-  cancelInteraction() {
-    this.bikeMap.getInteractions().forEach(interaction => {
-      if (interaction instanceof Draw) {
-        interaction.abortDrawing();
-      } else if (interaction instanceof Select) {
-        if (interaction.getFeatures().getLength() === 1) {
-          const cancelledFeature = interaction.getFeatures().getArray()[0];
-          this.firestore.collection('items').doc(cancelledFeature.getProperties().firestoreId)
-            .get()
-            .subscribe(item => {
-                this.pathsDetailsSource.removeFeature(cancelledFeature);
-                this.pathsDetailsSource.addFeature(
-                  this.geoJson.readFeature(this.getFeature(item))
-                );
-              }
-            );
+  enableDraw() {
+    this.drawEnabled = true;
+    this.draw.setActive(true);
+    this.select.setActive(false);
+  }
+
+  disableDraw() {
+    this.drawEnabled = false;
+    this.draw.setActive(false);
+    this.select.setActive(true);
+  }
+
+  disableSelect() {
+    this.pathSelected = false;
+    const cancelledFeature = this.select.getFeatures().getArray()[0];
+    this.firestore.collection('items').doc(cancelledFeature.getProperties().firestoreId)
+      .get()
+      .subscribe(item => {
+          this.pathsDetailsSource.removeFeature(cancelledFeature);
+          this.pathsDetailsSource.addFeature(
+            this.geoJson.readFeature(this.getFeature(item))
+          );
         }
-        interaction.getFeatures().clear();
-        this.bikeMap.render(); // strangely doesn't work without that
-      }
-      this.panelOpened = false;
-    });
+      );
+    this.select.getFeatures().clear();
+    this.bikeMap.render(); // strangely doesn't work without that
   }
 }
 
-export class MyControl extends Control {
-  constructor(draw: Draw) {
-    let drawEnabled = false;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.innerHTML = 'A';
-    const element = document.createElement('div');
-    element.className = 'ol-custom ol-unselectable ol-control';
-    element.appendChild(button);
-    button.addEventListener('click', () => {
-      if (drawEnabled) {
-        (this as Control).getMap().removeInteraction(draw);
-        button.innerHTML = 'Activer l\'ajout';
-        (this as Control).getMap().removeInteraction(draw);
-        button.innerHTML = 'A';
-      } else {
-        (this as Control).getMap().addInteraction(draw);
-        button.innerHTML = 'Désactiver l\'ajout';
-        (this as Control).getMap().addInteraction(draw);
-        button.innerHTML = 'M';
-      }
-      drawEnabled = !drawEnabled;
-    });
-    super({element});
-  }
-}
+
