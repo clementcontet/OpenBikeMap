@@ -1,27 +1,56 @@
 <mat-sidenav-container>
-  <mat-sidenav mode="side" position="end" [(opened)]="pathSelected">
-    <button mat-flat-button color="primary" (click)="disableSelect()">Annuler</button>
+  <mat-sidenav mode="side" position="end" [opened]="featureSelected()">
+    <div *ngIf="interactionState === InteractionState.Consulting">
+      <button
+        mat-flat-button color="primary" (click)="startModification()">Modifier
+      </button>
+    </div>
+    <div *ngIf="interactionState === InteractionState.Modifying">
+      <button
+        mat-flat-button color="primary" (click)="validateEdition()">Valider la modification
+      </button>
+    </div>
+    <div *ngIf="interactionState === InteractionState.Modifying">
+      <button
+        mat-flat-button color="warn" (click)="cancelEdition()">Annuler la modification
+      </button>
+    </div>
+    <div *ngIf="interactionState === InteractionState.Creating">
+      <button
+        mat-flat-button color="primary" (click)="validateEdition()">Valider l'ajout
+      </button>
+    </div>
+    <div *ngIf="interactionState === InteractionState.Creating">
+      <button
+        mat-flat-button color="warn" (click)="cancelEdition()">Annuler l'ajout
+      </button>
+    </div>
+
+    <mat-card *ngIf="selectedPathDistance">
+      Distance : {{selectedPathDistance}}
+    </mat-card>
+
     <mat-card>
       Coolitude ?<br/>
       <mat-slider thumbLabel min="1" max="5" step="1" value="3"></mat-slider>
     </mat-card>
-
   </mat-sidenav>
+
   <mat-sidenav-content>
     <div id="bike_map">
       <button id="enable_draw"
-              *ngIf="!drawEnabled && !pathSelected"
+              *ngIf="interactionState === InteractionState.Browsing"
               mat-flat-button
               color="primary"
-              (click)="enableDraw()">
+              (click)="startDrawing()">
         Ajouter un chemin
       </button>
       <button id="disable_draw"
-              *ngIf="drawEnabled && !pathSelected"
+              *ngIf="interactionState === InteractionState.Drawing"
               mat-flat-button
-              color="primary"
-              (click)="disableDraw()">
-        Annuler l'ajout
+              color="warn"
+              (click)="cancelDrawing()">
+        Annuler le tracé
       </button>
     </div>
     <button (click)="clearMap()">clear map</button>

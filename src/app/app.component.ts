@@ -1,29 +1,37 @@
 import {Component, OnInit} from '@angular/core';
+import {AngularFirestore} from '@angular/fire/firestore';
+import {DocumentChangeAction, QueryDocumentSnapshot} from '@angular/fire/firestore/interfaces';
+import {ScaleLine, defaults as defaultControls} from 'ol/control';
+import {click, never, noModifierKeys, primaryAction, singleClick} from 'ol/events/condition';
 import {getCenter} from 'ol/extent';
-import GeoJSON from 'ol/format/GeoJSON';
 import Feature from 'ol/Feature';
-import Map from 'ol/Map';
-import View from 'ol/View';
+import GeoJSON from 'ol/format/GeoJSON';
+import Geometry from 'ol/geom/Geometry';
 import GeometryType from 'ol/geom/GeometryType';
 import LineString from 'ol/geom/LineString';
 import Point from 'ol/geom/Point';
-import * as sphere from 'ol/sphere';
-import {Control, ScaleLine, defaults as defaultControls} from 'ol/control';
 import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/interaction';
-import {OSM} from 'ol/source';
-import VectorSource, {VectorSourceEvent} from 'ol/source/Vector';
-import * as olProj from 'ol/proj';
-import TileLayer from 'ol/layer/Tile';
-import VectorLayer from 'ol/layer/Vector';
-import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
-import {AngularFirestore} from '@angular/fire/firestore';
-import {DocumentChangeAction, QueryDocumentSnapshot} from '@angular/fire/firestore/interfaces';
-import {SelectEvent} from 'ol/interaction/Select';
 import {DrawEvent} from 'ol/interaction/Draw';
 import {ModifyEvent} from 'ol/interaction/Modify';
-import Geometry from 'ol/geom/Geometry';
+import {SelectEvent} from 'ol/interaction/Select';
 import Heatmap from 'ol/layer/Heatmap';
-import {never} from 'ol/events/condition';
+import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import Map from 'ol/Map';
+import * as olProj from 'ol/proj';
+import View from 'ol/View';
+import {OSM} from 'ol/source';
+import VectorSource, {VectorSourceEvent} from 'ol/source/Vector';
+import * as sphere from 'ol/sphere';
+import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
+
+enum InteractionState {
+  Browsing,
+  Drawing,
+  Creating,
+  Consulting,
+  Modifying
+}
 
 @Component({
   selector: 'app-root',
@@ -33,25 +41,43 @@ import {never} from 'ol/events/condition';
 
 export class AppComponent implements OnInit {
   title = 'open-bike-map';
-  drawEnabled = false;
-  pathSelected = false;
+  InteractionState = InteractionState;
+  interactionState = InteractionState.Browsing;
+  selectedPathDistance = null;
   private bikeMap: Map;
   private draw: Draw;
   private select: Select;
+  private modify: Modify;
   private pathsDetailsSource = new VectorSource();
   private pathsCentersSource = new VectorSource();
+  private countryLayer: VectorLayer;
+  private regionsLayer: VectorLayer;
+  private departmentsLayer: VectorLayer;
   private readonly countryThresholdZoom = 6;
   private readonly regionThresholdZoom = 8;
   private readonly departmentThresholdZoom = 10;
-  private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#333', width: 1})});
-  private firestore: AngularFirestore;
+  private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#333'})});
+  private readonly firestore: AngularFirestore;
   private readonly geoJson = new GeoJSON({featureProjection: 'EPSG:3857'});
+
+  featureSelected() {
+    return this.interactionState === InteractionState.Creating
+      || this.interactionState === InteractionState.Consulting
+      || this.interactionState === InteractionState.Modifying;
+  }
 
   constructor(firestore: AngularFirestore) {
     this.firestore = firestore;
   }
 
   ngOnInit() {
+    this.subscribeToFirestoreModifications();
+    this.createMap();
+    this.listenToEvents();
+    this.updateInteractions();
+  }
+
+  private subscribeToFirestoreModifications() {
     this.firestore.collection('items').stateChanges()
       .subscribe(
         (items: DocumentChangeAction<any>[]) => {
@@ -79,132 +105,13 @@ export class AppComponent implements OnInit {
           this.pathsCentersSource.clear();
           this.pathsCentersSource.addFeatures(
             this.geoJson.readFeatures(featuresCollection));
+
+          // These three layers sources don't change, but they style should change with the new distance
+          this.countryLayer.changed();
+          this.regionsLayer.changed();
+          this.departmentsLayer.changed();
         }
       );
-
-    const countrySource = new VectorSource({url: 'assets/country.geojson', format: this.geoJson});
-    const countryLayer = new VectorLayer({
-      source: countrySource,
-      maxZoom: this.countryThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, true),
-    });
-
-    const regionSource = new VectorSource({url: 'assets/regions.geojson', format: this.geoJson});
-    const regionsLayer = new VectorLayer({
-      source: regionSource,
-      minZoom: this.countryThresholdZoom,
-      maxZoom: this.regionThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
-    });
-
-    const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: this.geoJson});
-    const departmentsLayer = new VectorLayer({
-      source: departmentsSource,
-      minZoom: this.regionThresholdZoom,
-      maxZoom: this.departmentThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
-    });
-    const heatLayer = new Heatmap({
-      source: this.pathsCentersSource,
-      maxZoom: this.departmentThresholdZoom,
-      weight: feature => feature.getProperties().distance,
-      gradient: ['#fff', '#ff7900']
-    });
-
-    const pathsLayer = new VectorLayer({
-      source: this.pathsDetailsSource,
-      minZoom: this.departmentThresholdZoom,
-      style: new Style({
-        stroke: new Stroke({color: '#ff7900', width: 6}),
-        image: new CircleStyle({
-          radius: 10, fill: new Fill({color: '#ff0000'}),
-        })
-      }),
-    });
-
-    this.select = new Select({layers: [pathsLayer], toggleCondition: never});
-    const modify = new Modify({features: this.select.getFeatures()});
-    this.draw = new Draw({
-      source: this.pathsDetailsSource,
-      type: GeometryType.LINE_STRING,
-      stopClick: true,
-      // condition: (e) => e.type === 'singleclick',
-    });
-    const snap = new Snap({source: this.pathsDetailsSource});
-    this.disableDraw();
-
-    this.bikeMap = new Map({
-      target: 'bike_map',
-      layers: [
-        new TileLayer({source: new OSM()}),
-        pathsLayer,
-        heatLayer,
-        departmentsLayer,
-        regionsLayer,
-        countryLayer,
-      ],
-      interactions: defaultInteractions().extend([
-        this.select,
-        modify,
-        this.draw,
-        snap
-      ]),
-      view: new View({
-        center: olProj.fromLonLat([4.832, 45.758]),
-        zoom: 15
-      }),
-      controls: defaultControls().extend([new ScaleLine({minWidth: 150})])
-    });
-
-    this.select.on('select', (selectionEvent: SelectEvent) => {
-      this.pathSelected = selectionEvent.selected.length === 1;
-
-      selectionEvent.deselected.forEach(feature => {
-        const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
-        if (geometry.getType() === 'LineString' && feature.getProperties().modified && !feature.getProperties().cancelled) {
-          feature.getProperties().modified = false;
-          const coordinates = (geometry as LineString).getCoordinates();
-          this.firestore.collection('items').doc(feature.getProperties().firestoreId)
-            .update(
-              {
-                // Nested array are not supported in Cloud Firestore (yet?)
-                // so 'coordinates' is stored as a dict
-                geometry: {type: 'LineString', coordinates: Object.assign({}, coordinates)}// https://stackoverflow.com/a/36388401
-              }
-            );
-        }
-      });
-    });
-
-    modify.on('modifyend', (modifyEvent: ModifyEvent) => {
-      modifyEvent.features.forEach(feature => {
-        feature.setProperties({modified: true});
-        this.removeDuplicates(feature);
-      });
-    });
-
-    this.draw.on('drawend', (drawEvent: DrawEvent) => {
-        this.disableDraw();
-        const geometry = drawEvent.feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
-        const coordinates = (geometry as LineString).getCoordinates();
-        this.firestore.collection('items')
-          .add(
-            {
-              type: 'Feature',
-              // Nested array are not supported in Cloud Firestore (yet?)
-              // so 'coordinates' is stored as a dict
-              geometry: {type: 'LineString', coordinates: Object.assign({}, coordinates)}// https://stackoverflow.com/a/36388401
-            }
-          );
-      }
-    );
-
-    // Immediately remove added features if they were added by "draw" interaction (not Firestore)
-    this.pathsDetailsSource.on('addfeature', (vectorSourceEvent: VectorSourceEvent) => {
-      if (!vectorSourceEvent.feature.getProperties().addedByFirestore) {
-        this.pathsDetailsSource.removeFeature(vectorSourceEvent.feature);
-      }
-    });
   }
 
   private removeFeatures(items: DocumentChangeAction<any>[]) {
@@ -232,12 +139,254 @@ export class AppComponent implements OnInit {
       feature.properties = {};
     }
     feature.properties.firestoreId = doc.id;
-    feature.properties.addedByFirestore = true;
     // Nested array are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict and we change it back
     // to an array
     feature.geometry.coordinates = Object.values(feature.geometry.coordinates);
     return feature;
+  }
+
+  private createMap() {
+    const countrySource = new VectorSource({url: 'assets/country.geojson', format: this.geoJson});
+    this.countryLayer = new VectorLayer({
+      source: countrySource,
+      maxZoom: this.countryThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, true),
+    });
+
+    const regionSource = new VectorSource({url: 'assets/regions.geojson', format: this.geoJson});
+    this.regionsLayer = new VectorLayer({
+      source: regionSource,
+      minZoom: this.countryThresholdZoom,
+      maxZoom: this.regionThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
+    });
+
+    const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: this.geoJson});
+    this.departmentsLayer = new VectorLayer({
+      source: departmentsSource,
+      minZoom: this.regionThresholdZoom,
+      maxZoom: this.departmentThresholdZoom,
+      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
+    });
+
+    const heatLayer = new Heatmap({
+      source: this.pathsCentersSource,
+      maxZoom: this.departmentThresholdZoom,
+      weight: feature => feature.getProperties().distance,
+      gradient: ['#fff', '#ff7900']
+    });
+
+    const pathsLayer = new VectorLayer({
+      source: this.pathsDetailsSource,
+      minZoom: this.departmentThresholdZoom,
+      style: new Style({
+        stroke: new Stroke({color: '#ff7900', width: 6}),
+        image: new CircleStyle({
+          radius: 10, fill: new Fill({color: '#ff0000'}),
+        })
+      }),
+    });
+
+    this.select = new Select({layers: [pathsLayer], toggleCondition: never});
+    this.modify = new Modify({features: this.select.getFeatures()});
+    this.draw = new Draw({
+      source: this.pathsDetailsSource,
+      type: GeometryType.LINE_STRING,
+      stopClick: true, // avoid zoom by double clicking
+      condition: primaryAction, // avoid right click
+    });
+    const snap = new Snap({source: this.pathsDetailsSource});
+
+    this.bikeMap = new Map({
+      target: 'bike_map',
+      layers: [
+        new TileLayer({source: new OSM()}),
+        pathsLayer,
+        heatLayer,
+        this.departmentsLayer,
+        this.regionsLayer,
+        this.countryLayer,
+      ],
+      interactions: defaultInteractions().extend([
+        this.select,
+        this.modify,
+        this.draw,
+        snap
+      ]),
+      view: new View({
+        center: olProj.fromLonLat([4.832, 45.758]),
+        zoom: 15
+      }),
+      controls: defaultControls().extend([new ScaleLine({minWidth: 150})])
+    });
+  }
+
+  private getAreaStyle(areaFeature: Feature, isFrance: boolean): Style[] {
+    const distance = this.pathsCentersSource.getFeatures()
+      .filter(pathFeature => areaFeature.getGeometry().intersectsCoordinate((pathFeature.getGeometry() as Point).getCoordinates()))
+      .map(pathFeature => pathFeature.getProperties().distance)
+      .reduce((acc, curr) => acc + curr, 0);
+
+    let areaCenter: Geometry;
+    if (isFrance) {
+      // https://fr.wikipedia.org/wiki/Centre_de_la_France
+      areaCenter = new Point([2 + (25 + 0 / 60) / 60, 46 + (45 + 7 / 60) / 60])
+        .transform('EPSG:4326', 'EPSG:3857');
+    } else {
+      areaCenter = new Point(getCenter(areaFeature.getGeometry().getExtent()));
+    }
+
+    return [
+      this.areaBorderStyle,
+      new Style({
+        geometry: areaCenter,
+        text: new Text({
+          font: '1.5em bold Helvetica, sans-serif',
+          text: `${Math.round(distance)}km`,
+          fill: new Fill({color: '#fff'}),
+          stroke: new Stroke({color: '#000', width: 4}),
+        }),
+      })];
+  }
+
+  private listenToEvents() {
+    this.select.on('select', (selectionEvent: SelectEvent) => {
+      this.selectedPathDistance = null;
+      if (selectionEvent.selected.length === 1) {
+        this.interactionState = InteractionState.Consulting;
+      } else {
+        this.interactionState = InteractionState.Browsing;
+      }
+      this.updateInteractions();
+    });
+
+    // Simplify lines that have duplicated points
+    this.modify.on('modifyend', (modifyEvent: ModifyEvent) => {
+      modifyEvent.features.forEach(feature => this.removeDuplicates(feature));
+      this.updateInteractions();
+    });
+
+    this.draw.on('drawend', (drawEvent: DrawEvent) => {
+        this.interactionState = InteractionState.Creating;
+        this.select.getFeatures().insertAt(0, drawEvent.feature);
+        this.updateInteractions();
+      }
+    );
+  }
+
+  private removeDuplicates(feature: Feature) {
+    const geometry = feature.getGeometry();
+    if (geometry.getType() === 'LineString') {
+      const coordinates = (geometry as LineString).getCoordinates();
+      let x = 0;
+      let y = 0;
+      let shouldModify = false;
+      const newCoordinates = coordinates.filter((coord) => {
+        const shouldAdd = coord[0] !== x || coord[1] !== y;
+        if (!shouldAdd) {
+          shouldModify = true;
+        }
+        x = coord[0];
+        y = coord[1];
+        return shouldAdd;
+      });
+      if (shouldModify && coordinates.length > 2) {
+        (geometry as LineString).setCoordinates(newCoordinates);
+      }
+    }
+  }
+
+  startDrawing() {
+    this.interactionState = InteractionState.Drawing;
+    this.updateInteractions();
+  }
+
+  cancelDrawing() {
+    this.interactionState = InteractionState.Browsing;
+    this.updateInteractions();
+  }
+
+  startModification() {
+    this.interactionState = InteractionState.Modifying;
+    this.updateInteractions();
+  }
+
+  validateEdition() {
+    const feature = this.select.getFeatures().item(0);
+    const geometry = feature.getGeometry().transform('EPSG:3857', 'EPSG:4326');
+    const coordinates = (geometry as LineString).getCoordinates();
+    // Nested array are not supported in Cloud Firestore (yet?)
+    // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
+    const coordinatesMap = Object.assign({}, coordinates);
+    if (this.interactionState === InteractionState.Creating) {
+      this.pathsDetailsSource.removeFeature(feature);
+      this.firestore.collection('items')
+        .add({type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}});
+    } else if (this.interactionState === InteractionState.Modifying) {
+      if (geometry.getType() === 'LineString') {
+        this.firestore.collection('items').doc(feature.getProperties().firestoreId)
+          .update({geometry: {type: 'LineString', coordinates: coordinatesMap}});
+      }
+    }
+    this.interactionState = InteractionState.Browsing;
+    this.updateInteractions();
+  }
+
+  cancelEdition() {
+    const feature = this.select.getFeatures().item(0);
+    this.pathsDetailsSource.removeFeature(feature);
+
+    if (this.interactionState === InteractionState.Modifying) {
+      this.firestore.collection('items').doc(feature.getProperties().firestoreId)
+        .get()
+        .subscribe(item => {
+            this.pathsDetailsSource.addFeature(
+              this.geoJson.readFeature(this.getFeature(item))
+            );
+          }
+        );
+    }
+
+    this.interactionState = InteractionState.Browsing;
+    this.updateInteractions();
+  }
+
+  updateInteractions() {
+    this.draw.setActive(this.interactionState === InteractionState.Drawing);
+    this.select.setActive(this.interactionState === InteractionState.Browsing
+      || this.interactionState === InteractionState.Consulting);
+    this.modify.setActive(this.interactionState === InteractionState.Modifying);
+
+    if (this.featureSelected()) {
+      const feature = this.select.getFeatures().item(0);
+      const geometry = feature.getGeometry()
+        .clone()
+        .transform('EPSG:3857', 'EPSG:4326');
+      if (geometry instanceof LineString) {
+        this.selectedPathDistance = Math.round(this.computeDistance(geometry) / 100) / 10;
+      }
+    }
+
+    if (!this.featureSelected()) {
+      this.select.getFeatures().clear();
+    }
+  }
+
+  private computeDistance(geometry: LineString): number {
+    const lineCoords: number[][] = geometry.getCoordinates();
+    let lastX = lineCoords[0][0];
+    let lastY = lineCoords[0][1];
+    let distance = 0;
+    lineCoords.splice(0, 1);
+    for (const coord of lineCoords) {
+      const coordX = coord[0];
+      const coordY = coord[1];
+      distance = distance + sphere.getDistance([lastX, lastY], [coordX, coordY]);
+      lastX = coordX;
+      lastY = coordY;
+    }
+    return distance;
   }
 
   clearMap() {
@@ -305,7 +454,6 @@ export class AppComponent implements OnInit {
   }
 
   private addLine(longStart: number, latStart: number, longEnd: number, latEnd: number) {
-    const distance = Math.round(sphere.getDistance([longStart, latStart], [longEnd, latEnd]) / 100) / 10;
     this.firestore.collection('items')
       .add(
         {
@@ -315,84 +463,6 @@ export class AppComponent implements OnInit {
           geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}}
         }
       );
-  }
-
-  private getAreaStyle(areaFeature: Feature, isFrance: boolean): Style[] {
-    const distance = this.pathsCentersSource.getFeatures()
-      .filter(pathFeature => areaFeature.getGeometry().intersectsCoordinate((pathFeature.getGeometry() as Point).getCoordinates()))
-      .map(pathFeature => pathFeature.getProperties().distance)
-      .reduce((acc, curr) => acc + curr, 0);
-
-    let areaCenter: Geometry;
-    if (isFrance) {
-      // https://fr.wikipedia.org/wiki/Centre_de_la_France
-      areaCenter = new Point([2 + (25 + 0 / 60) / 60, 46 + (45 + 7 / 60) / 60])
-        .transform('EPSG:4326', 'EPSG:3857');
-    } else {
-      areaCenter = new Point(getCenter(areaFeature.getGeometry().getExtent()));
-    }
-
-    return [
-      this.areaBorderStyle,
-      new Style({
-        geometry: areaCenter,
-        text: new Text({
-          font: '1.5em bold Helvetica, sans-serif',
-          text: `${Math.round(distance)}km`,
-          fill: new Fill({color: '#fff  '}),
-          stroke: new Stroke({color: '#000', width: 4}),
-        }),
-      })];
-  }
-
-  private removeDuplicates(feature: Feature) {
-    const geometry = feature.getGeometry();
-    if (geometry.getType() === 'LineString') {
-      const coordinates = (geometry as LineString).getCoordinates();
-      let x = 0;
-      let y = 0;
-      let shouldModify = false;
-      const newCoordinates = coordinates.filter((coord) => {
-        const shouldAdd = coord[0] !== x || coord[1] !== y;
-        if (!shouldAdd) {
-          shouldModify = true;
-        }
-        x = coord[0];
-        y = coord[1];
-        return shouldAdd;
-      });
-      if (shouldModify && coordinates.length > 2) {
-        (geometry as LineString).setCoordinates(newCoordinates);
-      }
-    }
-  }
-
-  enableDraw() {
-    this.drawEnabled = true;
-    this.draw.setActive(true);
-    this.select.setActive(false);
-  }
-
-  disableDraw() {
-    this.drawEnabled = false;
-    this.draw.setActive(false);
-    this.select.setActive(true);
-  }
-
-  disableSelect() {
-    this.pathSelected = false;
-    const cancelledFeature = this.select.getFeatures().getArray()[0];
-    this.firestore.collection('items').doc(cancelledFeature.getProperties().firestoreId)
-      .get()
-      .subscribe(item => {
-          this.pathsDetailsSource.removeFeature(cancelledFeature);
-          this.pathsDetailsSource.addFeature(
-            this.geoJson.readFeature(this.getFeature(item))
-          );
-        }
-      );
-    this.select.getFeatures().clear();
-    this.bikeMap.render(); // strangely doesn't work without that
   }
 }
 

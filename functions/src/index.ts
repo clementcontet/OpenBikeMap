@@ -39,7 +39,7 @@ function computeCenters(doc: QueryDocumentSnapshot, context: EventContext) {
   for (const coord of lineCoords) {
     const coordX = coord[0];
     const coordY = coord[1];
-    distance = distance + Math.round(computeDistance(lastX, lastY, coordX, coordY) / 100) / 10;
+    distance = distance + computeDistance(lastX, lastY, coordX, coordY);
     if (coordX < boundingBoxMinX) {
       boundingBoxMinX = coordX;
     }
@@ -59,7 +59,7 @@ function computeCenters(doc: QueryDocumentSnapshot, context: EventContext) {
   const center = {
     type: 'Feature',
     geometry: {type: 'Point', coordinates: [(boundingBoxMinX + boundingBoxMaxX) / 2, (boundingBoxMinY + boundingBoxMaxY) / 2]},
-    properties: {distance}
+    properties: {distance: Math.round(distance / 100) / 10}
   };
   functions.logger.log(`new center for ${context.params.documentId}: ${JSON.stringify(center)}`);
   return admin.firestore().collection('centers').doc(context.params.documentId).set(center);
