@@ -27,7 +27,7 @@
     </div>
 
     <mat-card *ngIf="selectedPathDistance">
-      Distance : {{selectedPathDistance}}
+      Distance : {{selectedPathDistance}}km
     </mat-card>
 
     <mat-card>
@@ -50,11 +50,11 @@
               mat-flat-button
               color="warn"
               (click)="cancelDrawing()">
-        Annuler le tracé
+        Tracez le chemin en cliquant avec la souris<br/>
+        [Entrée] ou [double-clic] pour valider, [Esc] pour annuler
       </button>
     </div>
-    <button (click)="clearMap()">clear map</button>
-    <button (click)="initMap()">init map</button>
   </mat-sidenav-content>
 </mat-sidenav-container>
-
+<button (click)="clearMap()">clear map</button>
+<button (click)="initMap()">init map</button>

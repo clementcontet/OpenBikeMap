@@ -2,7 +2,7 @@ import {Component, OnInit} from '@angular/core';
 import {AngularFirestore} from '@angular/fire/firestore';
 import {DocumentChangeAction, QueryDocumentSnapshot} from '@angular/fire/firestore/interfaces';
 import {ScaleLine, defaults as defaultControls} from 'ol/control';
-import {click, never, noModifierKeys, primaryAction, singleClick} from 'ol/events/condition';
+import {never, primaryAction} from 'ol/events/condition';
 import {getCenter} from 'ol/extent';
 import Feature from 'ol/Feature';
 import GeoJSON from 'ol/format/GeoJSON';
@@ -21,7 +21,7 @@ import Map from 'ol/Map';
 import * as olProj from 'ol/proj';
 import View from 'ol/View';
 import {OSM} from 'ol/source';
-import VectorSource, {VectorSourceEvent} from 'ol/source/Vector';
+import VectorSource from 'ol/source/Vector';
 import * as sphere from 'ol/sphere';
 import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
 
@@ -139,7 +139,7 @@ export class AppComponent implements OnInit {
       feature.properties = {};
     }
     feature.properties.firestoreId = doc.id;
-    // Nested array are not supported in Cloud Firestore (yet?)
+    // Nested arrays are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict and we change it back
     // to an array
     feature.geometry.coordinates = Object.values(feature.geometry.coordinates);
@@ -268,11 +268,25 @@ export class AppComponent implements OnInit {
     });
 
     this.draw.on('drawend', (drawEvent: DrawEvent) => {
-        this.interactionState = InteractionState.Creating;
-        this.select.getFeatures().insertAt(0, drawEvent.feature);
-        this.updateInteractions();
+        if ((drawEvent.feature.getGeometry() as LineString).getLength() > 0) {
+          this.interactionState = InteractionState.Creating;
+          this.select.getFeatures().insertAt(0, drawEvent.feature);
+          this.updateInteractions();
+        } else {
+          this.interactionState = InteractionState.Browsing;
+          this.updateInteractions();
+        }
       }
     );
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.interactionState = InteractionState.Browsing;
+        this.updateInteractions();
+      } else if (e.key === 'Enter') {
+        this.draw.finishDrawing();
+      }
+    });
   }
 
   private removeDuplicates(feature: Feature) {
@@ -316,7 +330,7 @@ export class AppComponent implements OnInit {
     const feature = this.select.getFeatures().item(0);
     const geometry = feature.getGeometry().transform('EPSG:3857', 'EPSG:4326');
     const coordinates = (geometry as LineString).getCoordinates();
-    // Nested array are not supported in Cloud Firestore (yet?)
+    // Nested arrays are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
     const coordinatesMap = Object.assign({}, coordinates);
     if (this.interactionState === InteractionState.Creating) {
@@ -458,7 +472,7 @@ export class AppComponent implements OnInit {
       .add(
         {
           type: 'Feature',
-          // Nested array are not supported in Cloud Firestore (yet?)
+          // Nested arrays are not supported in Cloud Firestore (yet?)
           // so 'coordinates' is stored as a dict
           geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}}
         }
