@@ -1,6 +1,10 @@
+import {environment} from '../environments/environment';
 import {Component, OnInit} from '@angular/core';
 import {AngularFirestore} from '@angular/fire/firestore';
+import {AngularFireAuth} from '@angular/fire/auth';
 import {DocumentChangeAction, QueryDocumentSnapshot} from '@angular/fire/firestore/interfaces';
+import {MatDialog} from '@angular/material/dialog';
+import {User} from 'firebase';
 import {ScaleLine, defaults as defaultControls} from 'ol/control';
 import {never, primaryAction} from 'ol/events/condition';
 import {getCenter} from 'ol/extent';
@@ -24,6 +28,8 @@ import {OSM} from 'ol/source';
 import VectorSource from 'ol/source/Vector';
 import * as sphere from 'ol/sphere';
 import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
+import {LoginDialogComponent} from './login-dialog/login-dialog.component';
+import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
 
 enum InteractionState {
   Browsing,
@@ -58,6 +64,9 @@ export class AppComponent implements OnInit {
   private readonly departmentThresholdZoom = 10;
   private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#333'})});
   private readonly firestore: AngularFirestore;
+  private readonly fireAuth: AngularFireAuth;
+  private user: User;
+  private readonly dialog: MatDialog;
   private readonly geoJson = new GeoJSON({featureProjection: 'EPSG:3857'});
 
   featureSelected() {
@@ -66,8 +75,10 @@ export class AppComponent implements OnInit {
       || this.interactionState === InteractionState.Modifying;
   }
 
-  constructor(firestore: AngularFirestore) {
+  constructor(firestore: AngularFirestore, fireAuth: AngularFireAuth, dialog: MatDialog) {
     this.firestore = firestore;
+    this.fireAuth = fireAuth;
+    this.dialog = dialog;
   }
 
   ngOnInit() {
@@ -75,6 +86,90 @@ export class AppComponent implements OnInit {
     this.createMap();
     this.listenToEvents();
     this.updateInteractions();
+    this.fireAuth.user.subscribe(user => {
+      this.user = user;
+      this.verifyIfEmailLinkValidationIsNeeded();
+    });
+  }
+
+  // https://firebase.google.com/docs/auth/web/email-link-auth?hl=en
+  private verifyIfEmailLinkValidationIsNeeded() {
+    if (!this.user) {
+      this.fireAuth.isSignInWithEmailLink(window.location.href)
+        .then(isSignInWithEmailLink => {
+          if (isSignInWithEmailLink) {
+            this.validateEmailLink();
+          }
+        });
+    }
+  }
+
+  private validateEmailLink() {
+    const email = window.localStorage.getItem('emailForSignIn');
+    if (email) {
+      this.fireAuth.signInWithEmailLink(email, window.location.href)
+        .then((result) => {
+          window.localStorage.removeItem('emailForSignIn');
+        });
+    } else {
+      this.dialog.open(PopupDialogComponent, {
+        width: '250px',
+        data: {
+          content: 'Lien invalide sur cet appareil, veuillez recommencer l\'authentification.',
+          cancelPossible: false
+        }
+      });
+    }
+  }
+
+  login() {
+    const dialogRef = this.dialog.open(LoginDialogComponent, {
+      width: '250px',
+      data: {}
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        const options = {
+          // URL you want to redirect back to. The domain (www.example.com) for this
+          // URL must be whitelisted in the Firebase Console.
+          url: environment.signInEmailLinkDomain,
+          // This must be true.
+          handleCodeInApp: true
+        };
+        this.fireAuth.sendSignInLinkToEmail(result, options)
+          .then(() => {
+            // The link was successfully sent. Inform the user.
+            // Save the email locally so you don't need to ask the user for it again
+            // if they open the link on the same device.
+            window.localStorage.setItem('emailForSignIn', result);
+            this.dialog.open(PopupDialogComponent, {
+              width: '250px',
+              data: {
+                content: 'L\'email de connexion a été envoyé.',
+                cancelPossible: false
+              }
+            });
+          });
+      }
+    });
+  }
+
+  logout() {
+    const dialogRef = this.dialog.open(PopupDialogComponent, {
+      width: '250px',
+      data: {
+        content: 'Voulez-vous vous déconnecter ?',
+        cancelPossible: true,
+        validate: false
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(logoutValidated => {
+      if (logoutValidated) {
+        this.fireAuth.signOut();
+      }
+    });
   }
 
   private subscribeToFirestoreModifications() {
@@ -312,8 +407,18 @@ export class AppComponent implements OnInit {
   }
 
   startDrawing() {
-    this.interactionState = InteractionState.Drawing;
-    this.updateInteractions();
+    if (this.user) {
+      this.interactionState = InteractionState.Drawing;
+      this.updateInteractions();
+    } else {
+      this.dialog.open(PopupDialogComponent, {
+        width: '250px',
+        data: {
+          content: 'Vous devez vous connecter pour pouvoir créer un nouveau chemin.',
+          cancelPossible: false
+        }
+      });
+    }
   }
 
   cancelDrawing() {
@@ -322,8 +427,18 @@ export class AppComponent implements OnInit {
   }
 
   startModification() {
-    this.interactionState = InteractionState.Modifying;
-    this.updateInteractions();
+    if (this.user) {
+      this.interactionState = InteractionState.Modifying;
+      this.updateInteractions();
+    } else {
+      this.dialog.open(PopupDialogComponent, {
+        width: '250px',
+        data: {
+          content: 'Vous devez vous connecter pour pouvoir modifier un chemin.',
+          cancelPossible: false
+        }
+      });
+    }
   }
 
   validateEdition() {

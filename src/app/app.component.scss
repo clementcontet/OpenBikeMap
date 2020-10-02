@@ -1,3 +1,7 @@
+::ng-deep .mat-tooltip {
+  white-space: pre-line;
+}
+
 #bike_map {
   height: 500px;
   width: 100%;
@@ -6,8 +10,15 @@
   justify-content: center;
 }
 
-#enable_draw, #disable_draw {
+#login, #logout {
   position: absolute;
   top: 0px;
+  right: 0px;
+  z-index: 1;
+}
+
+#enable_draw, #disable_draw {
+  position: absolute;
+  bottom: 0px;
   z-index: 1;
 }

@@ -12,7 +12,8 @@ export const environment = {
     storageBucket: 'open-bike-map.appspot.com',
     messagingSenderId: '377402317727',
     appId: '1:377402317727:web:89ff93bb137e6bb22fbbaa',
-  }
+  },
+  signInEmailLinkDomain: 'http://localhost:4200/'
 };
 
 /*

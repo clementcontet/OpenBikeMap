@@ -7,7 +7,7 @@
     </div>
     <div *ngIf="interactionState === InteractionState.Modifying">
       <button
-        mat-flat-button color="primary" (click)="validateEdition()">Valider la modification
+        mat-flat-button color="accent" (click)="validateEdition()">Valider la modification
       </button>
     </div>
     <div *ngIf="interactionState === InteractionState.Modifying">
@@ -17,7 +17,7 @@
     </div>
     <div *ngIf="interactionState === InteractionState.Creating">
       <button
-        mat-flat-button color="primary" (click)="validateEdition()">Valider l'ajout
+        mat-flat-button color="accent" (click)="validateEdition()">Valider l'ajout
       </button>
     </div>
     <div *ngIf="interactionState === InteractionState.Creating">
@@ -38,6 +38,25 @@
 
   <mat-sidenav-content>
     <div id="bike_map">
+      <div *ngIf="user; else showLogin">
+        <button id="logout"
+                mat-mini-fab
+                color="accent"
+                matTooltip="Compte: {{user.email}}&#13;Se déconnecter"
+                (click)="logout()">
+          <mat-icon>account_circle</mat-icon>
+        </button>
+      </div>
+      <ng-template #showLogin>
+        <button id="login"
+                mat-mini-fab
+                color="warn"
+                matTooltip="Se connecter"
+                (click)="login()">
+          <mat-icon>account_circle</mat-icon>
+        </button>
+      </ng-template>
+
       <button id="enable_draw"
               *ngIf="interactionState === InteractionState.Browsing"
               mat-flat-button
