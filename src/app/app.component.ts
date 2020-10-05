@@ -65,7 +65,7 @@ export class AppComponent implements OnInit {
   private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#333'})});
   private readonly firestore: AngularFirestore;
   private readonly fireAuth: AngularFireAuth;
-  private user: User;
+  user: User;
   private readonly dialog: MatDialog;
   private readonly geoJson = new GeoJSON({featureProjection: 'EPSG:3857'});
 

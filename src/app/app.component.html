@@ -38,16 +38,16 @@
 
   <mat-sidenav-content>
     <div id="bike_map">
-      <div *ngIf="user; else showLogin">
+      <div *ngIf="user">
         <button id="logout"
                 mat-mini-fab
                 color="accent"
-                matTooltip="Compte: {{user.email}}&#13;Se déconnecter"
+                matTooltip="Se déconnecter de {{user.email}}"
                 (click)="logout()">
           <mat-icon>account_circle</mat-icon>
         </button>
       </div>
-      <ng-template #showLogin>
+      <div *ngIf="!user">
         <button id="login"
                 mat-mini-fab
                 color="warn"
@@ -55,7 +55,7 @@
                 (click)="login()">
           <mat-icon>account_circle</mat-icon>
         </button>
-      </ng-template>
+      </div>
 
       <button id="enable_draw"
               *ngIf="interactionState === InteractionState.Browsing"
