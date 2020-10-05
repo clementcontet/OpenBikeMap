@@ -1,4 +1,5 @@
 import {environment} from '../environments/environment';
+import {Location} from '@angular/common';
 import {Component, OnInit} from '@angular/core';
 import {AngularFirestore} from '@angular/fire/firestore';
 import {AngularFireAuth} from '@angular/fire/auth';
@@ -67,6 +68,7 @@ export class AppComponent implements OnInit {
   private readonly fireAuth: AngularFireAuth;
   user: User;
   private readonly dialog: MatDialog;
+  private readonly location: Location;
   private readonly geoJson = new GeoJSON({featureProjection: 'EPSG:3857'});
 
   featureSelected() {
@@ -75,10 +77,11 @@ export class AppComponent implements OnInit {
       || this.interactionState === InteractionState.Modifying;
   }
 
-  constructor(firestore: AngularFirestore, fireAuth: AngularFireAuth, dialog: MatDialog) {
+  constructor(firestore: AngularFirestore, fireAuth: AngularFireAuth, dialog: MatDialog, location: Location) {
     this.firestore = firestore;
     this.fireAuth = fireAuth;
     this.dialog = dialog;
+    this.location = location;
   }
 
   ngOnInit() {
@@ -110,6 +113,7 @@ export class AppComponent implements OnInit {
       this.fireAuth.signInWithEmailLink(email, window.location.href)
         .then((result) => {
           window.localStorage.removeItem('emailForSignIn');
+          this.location.replaceState('/');
         });
     } else {
       this.dialog.open(PopupDialogComponent, {
