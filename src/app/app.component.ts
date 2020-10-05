@@ -452,14 +452,18 @@ export class AppComponent implements OnInit {
     // Nested arrays are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
     const coordinatesMap = Object.assign({}, coordinates);
+    const history = {type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}};
     if (this.interactionState === InteractionState.Creating) {
       this.pathsDetailsSource.removeFeature(feature);
-      this.firestore.collection('items')
-        .add({type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}});
+      this.firestore.collection('history')
+        .add({})
+        .then(ref => ref.collection('entries').add(history));
     } else if (this.interactionState === InteractionState.Modifying) {
       if (geometry.getType() === 'LineString') {
-        this.firestore.collection('items').doc(feature.getProperties().firestoreId)
-          .update({geometry: {type: 'LineString', coordinates: coordinatesMap}});
+        this.firestore.collection('history')
+          .doc(feature.getProperties().firestoreId)
+          .collection('entries')
+          .add(history);
       }
     }
     this.interactionState = InteractionState.Browsing;
@@ -520,82 +524,6 @@ export class AppComponent implements OnInit {
       lastY = coordY;
     }
     return distance;
-  }
-
-  clearMap() {
-    this.firestore.collection('items').get().subscribe(res => {
-      res.forEach(element => {
-        element.ref.delete();
-      });
-    });
-
-    this.firestore.collection('centers').get().subscribe(res => {
-      res.forEach(element => {
-        element.ref.delete();
-      });
-    });
-  }
-
-  initMap() {
-    // bellecour
-    this.firestore.collection('items').add(
-      {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}}
-    );
-    // quais de rhône
-    this.addLine(4.841, 45.759, 4.8415, 45.765);
-
-    /*
-    // france
-    for (let long = -1.4; long < 7.7; long = long + 0.1) {
-      for (let lat = 43.4; lat < 48.9; lat = lat + 0.1) {
-        if (Math.random() > 0.95) {
-          const longStart = long + 0.1 * Math.random();
-          const longEnd = long + 0.1 * Math.random();
-          const latStart = lat + 0.1 * Math.random();
-          const latEnd = lat + 0.1 * Math.random();
-          this.addLine(longStart, latStart, longEnd, latEnd);
-        }
-      }
-    }
-
-    // lyon
-    for (let long = 4.78; long < 4.95; long = long + 0.01) {
-      for (let lat = 45.70; lat < 45.82; lat = lat + 0.01) {
-        if (Math.random() > 0.8) {
-          const longStart = long + 0.01 * Math.random();
-          const longEnd = long + 0.01 * Math.random();
-          const latStart = lat + 0.01 * Math.random();
-          const latEnd = lat + 0.01 * Math.random();
-          this.addLine(longStart, latStart, longEnd, latEnd);
-        }
-      }
-    }
-
-    // paris
-    for (let long = 2.24; long < 2.41; long = long + 0.01) {
-      for (let lat = 48.83; lat < 48.89; lat = lat + 0.01) {
-        if (Math.random() > 0.8) {
-          const longStart = long + 0.01 * Math.random();
-          const longEnd = long + 0.01 * Math.random();
-          const latStart = lat + 0.01 * Math.random();
-          const latEnd = lat + 0.01 * Math.random();
-          this.addLine(longStart, latStart, longEnd, latEnd);
-        }
-      }
-    }
-    */
-  }
-
-  private addLine(longStart: number, latStart: number, longEnd: number, latEnd: number) {
-    this.firestore.collection('items')
-      .add(
-        {
-          type: 'Feature',
-          // Nested arrays are not supported in Cloud Firestore (yet?)
-          // so 'coordinates' is stored as a dict
-          geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}}
-        }
-      );
   }
 }
 

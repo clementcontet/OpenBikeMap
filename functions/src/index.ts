@@ -1,32 +1,67 @@
 // The Cloud Functions for Firebase SDK to create Cloud Functions and setup triggers.
 import * as functions from 'firebase-functions';
-import {EventContext} from 'firebase-functions/lib/cloud-functions';
-import {QueryDocumentSnapshot} from 'firebase-functions/lib/providers/firestore';
+import * as admin from 'firebase-admin';
 
 // The Firebase Admin SDK to access Cloud Firestore.
-const admin = require('firebase-admin');
 admin.initializeApp();
 
-export const setPathCenterCreation = functions.firestore.document('/items/{documentId}')
-  .onCreate(computeCenters);
+const runtimeOpts = {
+  timeoutSeconds: 300
+};
 
-export const setPathCenterUpdate = functions.firestore.document('/items/{documentId}')
-  .onUpdate((change, context) => computeCenters(change.after, context));
+export const initRandom = functions.runWith(runtimeOpts).https.onRequest(async (req, res) => {
+  // bellecour
+  // admin.firestore().collection('items').add(
+  //   {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}}
+  // );
+  // quais de rhône
+  await addLine(4.841, 45.759, 4.8415, 45.765);
+  // france
+  await addRandomLines(200, 0.05, -1.4, 7.7, 43.4, 48.9);
+  // lyon
+  await addRandomLines(200, 0.005, 4.78, 4.95, 45.70, 45.82);
+  // paris
+  await addRandomLines(200, 0.005, 2.24, 2.41, 48.83, 48.89);
 
-function computeCenters(doc: QueryDocumentSnapshot, context: EventContext) {
-  if (doc.data() == null) {
-    functions.logger.log('null data');
-    return null;
+  res.json({res: 'Ayé'});
+});
+
+async function addRandomLines(numOfLines: number, maxDist: number, longMin: number, longMax: number, latMin: number, latMax: number) {
+  for (let i = 1; i < numOfLines; i++) {
+    const longStart = longMin + Math.random() * (longMax - longMin);
+    const latStart = latMin + Math.random() * (latMax - latMin);
+    const longEnd = longStart + maxDist * (Math.random() - 0.5);
+    const latEnd = latStart + maxDist * (Math.random() - 0.5);
+    await addLine(longStart, latStart, longEnd, latEnd);
   }
-  if (doc.data().geometry.type !== 'LineString') {
-    functions.logger.log('geometry.type !== \'LineString\'');
-    return null;
-  }
+}
 
-  // Nested array are not supported in Cloud Firestore (yet?)
-  // so 'coordinates' is stored as a dict and we change it back
-  // to an array
-  const lineCoords: number[][] = Object.values(doc.data().geometry.coordinates);
+async function addLine(longStart: number, latStart: number, longEnd: number, latEnd: number) {
+  await admin.firestore().collection('items')
+    .add(
+      {
+        type: 'Feature',
+        // Nested arrays are not supported in Cloud Firestore (yet?)
+        // so 'coordinates' is stored as a dict
+        geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}}
+      }
+    )
+    .then(async documentRef => await addCenter([[longStart, latStart], [longEnd, latEnd]], documentRef.id));
+}
+
+export const updateOnNewHistory = functions.firestore.document('/history/{history}/entries/{entry}')
+  .onCreate(async (doc) => {
+    // tslint:disable-next-line:no-non-null-assertion
+    const itemId = doc.ref.parent.parent!!.id;
+    await admin.firestore().collection('items').doc(itemId).set(doc.data());
+
+    // Nested array are not supported in Cloud Firestore (yet?)
+    // so 'coordinates' is stored as a dict and we change it back
+    // to an array
+    await addCenter(Object.values(doc.data().geometry.coordinates), itemId);
+  });
+
+async function addCenter(lineCoords: number[][], itemId: string) {
   let lastX = lineCoords[0][0];
   let lastY = lineCoords[0][1];
   let boundingBoxMinX = lastX;
@@ -61,12 +96,7 @@ function computeCenters(doc: QueryDocumentSnapshot, context: EventContext) {
     geometry: {type: 'Point', coordinates: [(boundingBoxMinX + boundingBoxMaxX) / 2, (boundingBoxMinY + boundingBoxMaxY) / 2]},
     properties: {distance: Math.round(distance / 100) / 10}
   };
-  functions.logger.log(`new center for ${context.params.documentId}: ${JSON.stringify(center)}`);
-  return admin.firestore().collection('centers').doc(context.params.documentId).set(center);
-}
-
-function toRadians(value: number) {
-  return value * Math.PI / 180;
+  await admin.firestore().collection('centers').doc(itemId).set(center);
 }
 
 function computeDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -83,5 +113,9 @@ function computeDistance(lat1: number, lon1: number, lat2: number, lon2: number)
     Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+function toRadians(value: number) {
+  return value * Math.PI / 180;
 }
 
