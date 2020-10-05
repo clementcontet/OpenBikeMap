@@ -1,5 +1,5 @@
 // https://la-cascade.io/pourquoi-height-100-ne-marche-pas/
-html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map{
+html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
   height: 100%;
   width: 100%;
 }
@@ -21,4 +21,9 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map{
   position: absolute;
   bottom: 0px;
   z-index: 1;
+}
+
+// Allow line breaks in snackbars
+::ng-deep .mat-simple-snackbar {
+  white-space: pre-wrap
 }

@@ -20,6 +20,7 @@ import {FormsModule} from '@angular/forms';
 import {AngularFireAuthModule} from '@angular/fire/auth';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
+import {MatSnackBarModule} from '@angular/material/snack-bar';
 
 @NgModule({
   declarations: [
@@ -41,6 +42,7 @@ import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
     MatCardModule,
     MatIconModule,
     MatDialogModule,
+    MatSnackBarModule,
     MatFormFieldModule,
     MatInputModule,
     FormsModule,

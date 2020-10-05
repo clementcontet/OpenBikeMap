@@ -31,6 +31,7 @@ import * as sphere from 'ol/sphere';
 import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
+import {MatSnackBar} from '@angular/material/snack-bar';
 
 enum InteractionState {
   Browsing,
@@ -68,6 +69,7 @@ export class AppComponent implements OnInit {
   private readonly fireAuth: AngularFireAuth;
   user: User;
   private readonly dialog: MatDialog;
+  private readonly snackBar: MatSnackBar;
   private readonly location: Location;
   private readonly geoJson = new GeoJSON({featureProjection: 'EPSG:3857'});
 
@@ -77,10 +79,17 @@ export class AppComponent implements OnInit {
       || this.interactionState === InteractionState.Modifying;
   }
 
-  constructor(firestore: AngularFirestore, fireAuth: AngularFireAuth, dialog: MatDialog, location: Location) {
+  constructor(
+    firestore: AngularFirestore,
+    fireAuth: AngularFireAuth,
+    dialog: MatDialog,
+    snackBar: MatSnackBar,
+    location: Location
+  ) {
     this.firestore = firestore;
     this.fireAuth = fireAuth;
     this.dialog = dialog;
+    this.snackBar = snackBar;
     this.location = location;
   }
 
@@ -497,6 +506,16 @@ export class AppComponent implements OnInit {
     this.select.setActive(this.interactionState === InteractionState.Browsing
       || this.interactionState === InteractionState.Consulting);
     this.modify.setActive(this.interactionState === InteractionState.Modifying);
+
+    if (this.interactionState === InteractionState.Drawing) {
+      this.snackBar.open(
+        'Tracez le chemin en cliquant\n[Entrée] pour valider / [Esc] pour annuler',
+        null,
+        {horizontalPosition: 'center', verticalPosition: 'top'}
+      );
+    } else {
+      this.snackBar.dismiss();
+    }
 
     if (this.featureSelected()) {
       const feature = this.select.getFeatures().item(0);
