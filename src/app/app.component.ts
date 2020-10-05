@@ -295,7 +295,7 @@ export class AppComponent implements OnInit {
       stopClick: true, // avoid zoom by double clicking
       condition: primaryAction, // avoid right click
     });
-    const snap = new Snap({source: this.pathsDetailsSource});
+    const snap = new Snap({source: this.pathsDetailsSource, pixelTolerance: 5});
 
     this.bikeMap = new Map({
       target: 'bike_map',
