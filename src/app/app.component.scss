@@ -1,10 +1,10 @@
-::ng-deep .mat-tooltip {
-  white-space: pre-line;
+// https://la-cascade.io/pourquoi-height-100-ne-marche-pas/
+html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map{
+  height: 100%;
+  width: 100%;
 }
 
 #bike_map {
-  height: 500px;
-  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;

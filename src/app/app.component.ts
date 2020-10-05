@@ -303,7 +303,7 @@ export class AppComponent implements OnInit {
         this.regionsLayer,
         this.countryLayer,
       ],
-      interactions: defaultInteractions().extend([
+      interactions: defaultInteractions({pinchRotate: false}).extend([
         this.select,
         this.modify,
         this.draw,
