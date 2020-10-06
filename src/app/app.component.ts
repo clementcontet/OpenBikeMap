@@ -389,11 +389,11 @@ export class AppComponent implements OnInit {
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        if (this.interactionState === InteractionState.Creating) {
-          this.pathsDetailsSource.removeFeature(this.select.getFeatures().item(0));
+        if (this.interactionState === InteractionState.Creating || this.interactionState === InteractionState.Modifying) {
+          this.cancelEdition();
+        } else if (this.interactionState === InteractionState.Drawing) {
+          this.cancelDrawing();
         }
-        this.interactionState = InteractionState.Browsing;
-        this.updateInteractions();
       } else if (e.key === 'Enter') {
         this.draw.finishDrawing();
       }
