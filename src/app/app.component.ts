@@ -200,8 +200,7 @@ export class AppComponent implements OnInit {
           const modifiedItems = items.filter(item => item.payload.type === 'modified');
           if (modifiedItems.length > 0) {
             this.removeFeatures(modifiedItems);
-            this.pathsDetailsSource.addFeatures(
-              this.geoJson.readFeatures(this.getFeaturesCollection(modifiedItems)));
+            this.pathsDetailsSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(modifiedItems)));
           }
         }
       );
@@ -459,7 +458,7 @@ export class AppComponent implements OnInit {
 
   validateEdition() {
     const feature = this.select.getFeatures().item(0);
-    const geometry = feature.getGeometry().transform('EPSG:3857', 'EPSG:4326');
+    const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
     const coordinates = (geometry as LineString).getCoordinates();
     // Nested arrays are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
@@ -525,9 +524,7 @@ export class AppComponent implements OnInit {
       if (geometry instanceof LineString) {
         this.selectedPathDistance = Math.round(this.computeDistance(geometry) / 100) / 10;
       }
-    }
-
-    if (!this.featureSelected()) {
+    } else {
       this.select.getFeatures().clear();
     }
   }
