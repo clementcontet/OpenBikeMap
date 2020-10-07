@@ -10,7 +10,7 @@ const runtimeOpts = {
 };
 
 export const testMaj = functions.https.onRequest((req, res) => {
-  res.json({res: 'Check5'});
+  res.json({res: 'Check6'});
 });
 
 export const initRandom = functions.runWith(runtimeOpts).https.onRequest(async (req, res) => {
@@ -65,11 +65,15 @@ export const updateOnNewHistory = functions.firestore.document('/history/{histor
     const itemId = item.id;
     const itemSnapshot = await admin.firestore().collection('items').doc(itemId).get();
     let pathFeature: any;
-    if (!itemSnapshot.exists) {
+    const currentItem = itemSnapshot.data();
+    if (currentItem !== undefined) {
+      // If item exists, only update its geometry
+      pathFeature = currentItem.path;
+      pathFeature.geometry = doc.data().feature.geometry;
+    } else {
+      // Otherwise, copy the entire feature from history
       pathFeature = doc.data().feature;
       pathFeature.properties = {creator: doc.data().creator};
-    } else {
-      pathFeature = {geometry: doc.data().feature.geometry};
     }
 
     // Nested array are not supported in Cloud Firestore (yet?)
@@ -81,8 +85,7 @@ export const updateOnNewHistory = functions.firestore.document('/history/{histor
       {
         path: pathFeature,
         center: centerFeature
-      },
-      {merge: true});
+      });
   });
 
 function getCenter(lineCoords: number[][]) {
