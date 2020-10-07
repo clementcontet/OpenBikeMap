@@ -28,7 +28,7 @@ import View from 'ol/View';
 import {OSM} from 'ol/source';
 import VectorSource from 'ol/source/Vector';
 import * as sphere from 'ol/sphere';
-import {Circle as CircleStyle, Fill, Stroke, Style, Text} from 'ol/style';
+import {Fill, Stroke, Style, Text} from 'ol/style';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
 import {MatSnackBar} from '@angular/material/snack-bar';
@@ -269,7 +269,7 @@ export class AppComponent implements OnInit {
     this.countryLayer = new VectorLayer({
       source: countrySource,
       maxZoom: this.countryThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, true),
+      style: (feature: Feature) => this.getAreaStyle(feature, true),
     });
 
     const regionSource = new VectorSource({url: 'assets/regions.geojson', format: this.geoJson});
@@ -277,7 +277,7 @@ export class AppComponent implements OnInit {
       source: regionSource,
       minZoom: this.countryThresholdZoom,
       maxZoom: this.regionThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
+      style: (feature: Feature) => this.getAreaStyle(feature, false),
     });
 
     const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: this.geoJson});
@@ -285,7 +285,7 @@ export class AppComponent implements OnInit {
       source: departmentsSource,
       minZoom: this.regionThresholdZoom,
       maxZoom: this.departmentThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getAreaStyle(feature, false),
+      style: (feature: Feature) => this.getAreaStyle(feature, false),
     });
 
     const heatLayer = new Heatmap({
@@ -299,10 +299,7 @@ export class AppComponent implements OnInit {
       source: this.pathsDetailsSource,
       minZoom: this.departmentThresholdZoom,
       style: new Style({
-        stroke: new Stroke({color: '#ff7900', width: 6}),
-        image: new CircleStyle({
-          radius: 10, fill: new Fill({color: '#ff0000'}),
-        })
+        stroke: new Stroke({color: '#ff7900', width: 6})
       }),
     });
 
