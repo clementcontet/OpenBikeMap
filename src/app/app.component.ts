@@ -193,25 +193,16 @@ export class AppComponent implements OnInit {
 
           const addedItems = items.filter(item => item.payload.type === 'added');
           if (addedItems.length > 0) {
-            this.pathsDetailsSource.addFeatures(
-              this.geoJson.readFeatures(this.getFeaturesCollection(addedItems)));
+            this.pathsCentersSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(addedItems, true)));
+            this.pathsDetailsSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(addedItems, false)));
           }
 
           const modifiedItems = items.filter(item => item.payload.type === 'modified');
           if (modifiedItems.length > 0) {
             this.removeFeatures(modifiedItems);
-            this.pathsDetailsSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(modifiedItems)));
+            this.pathsCentersSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(modifiedItems, true)));
+            this.pathsDetailsSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(modifiedItems, false)));
           }
-        }
-      );
-
-    this.firestore.collection('centers').valueChanges()
-      .subscribe(
-        (items: any) => {
-          const featuresCollection = {type: 'FeatureCollection', features: items};
-          this.pathsCentersSource.clear();
-          this.pathsCentersSource.addFeatures(
-            this.geoJson.readFeatures(featuresCollection));
 
           // These three layers sources don't change, but they style should change with the new distance
           this.countryLayer.changed();
@@ -223,29 +214,37 @@ export class AppComponent implements OnInit {
 
   private removeFeatures(items: DocumentChangeAction<any>[]) {
     items.forEach(item => {
-      const featureToRemove = this.pathsDetailsSource.getFeatures()
+      const centerToRemove = this.pathsCentersSource.getFeatures()
         .filter(feature => feature.getProperties().firestoreId === item.payload.doc.id);
-      if (featureToRemove.length === 1) {
-        this.pathsDetailsSource.removeFeature(featureToRemove[0]);
+      const pathToRemove = this.pathsDetailsSource.getFeatures()
+        .filter(feature => feature.getProperties().firestoreId === item.payload.doc.id);
+      if (centerToRemove.length === 1) {
+        this.pathsCentersSource.removeFeature(centerToRemove[0]);
+      }
+      if (pathToRemove.length === 1) {
+        this.pathsDetailsSource.removeFeature(pathToRemove[0]);
       }
     });
   }
 
-  private getFeaturesCollection(items: DocumentChangeAction<any>[]) {
+  private getFeaturesCollection(items: DocumentChangeAction<any>[], getCenters: boolean) {
     return {
       type: 'FeatureCollection',
       features: items.map((item: DocumentChangeAction<any>) => {
-        return this.getFeature(item.payload.doc);
+        if (getCenters) {
+          return this.getFeature(item.payload.doc.data().center, item.payload.doc.id);
+        } else {
+          return this.getFeature(item.payload.doc.data().path, item.payload.doc.id);
+        }
       })
     };
   }
 
-  private getFeature(doc: QueryDocumentSnapshot<any>) {
-    const feature = doc.data();
+  private getFeature(feature: any, firestoreId: string) {
     if (feature.properties === undefined) {
       feature.properties = {};
     }
-    feature.properties.firestoreId = doc.id;
+    feature.properties.firestoreId = firestoreId;
     // Nested arrays are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict and we change it back
     // to an array
@@ -463,12 +462,17 @@ export class AppComponent implements OnInit {
     // Nested arrays are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
     const coordinatesMap = Object.assign({}, coordinates);
-    const history = {type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}};
+    const history = {
+      creator: this.user.email,
+      feature: {type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}}
+    };
     if (this.interactionState === InteractionState.Creating) {
       this.pathsDetailsSource.removeFeature(feature);
       this.firestore.collection('history')
         .add({})
-        .then(ref => ref.collection('entries').add(history));
+        .then(ref => {
+          this.firestore.collection('history').doc(ref.id).collection('entries').add(history);
+        });
     } else if (this.interactionState === InteractionState.Modifying) {
       if (geometry.getType() === 'LineString') {
         this.firestore.collection('history')
@@ -488,9 +492,9 @@ export class AppComponent implements OnInit {
     if (this.interactionState === InteractionState.Modifying) {
       this.firestore.collection('items').doc(feature.getProperties().firestoreId)
         .get()
-        .subscribe(item => {
+        .subscribe(originalItem => {
             this.pathsDetailsSource.addFeature(
-              this.geoJson.readFeature(this.getFeature(item))
+              this.geoJson.readFeature(this.getFeature(originalItem.data().path, originalItem.id))
             );
           }
         );
