@@ -208,6 +208,13 @@ export class AppComponent implements OnInit {
           this.countryLayer.changed();
           this.regionsLayer.changed();
           this.departmentsLayer.changed();
+
+          // If one removes an item that was selected, go back to Browsing
+          if ((this.interactionState === InteractionState.Consulting || this.interactionState === InteractionState.Modifying)
+            && this.select.getFeatures().getLength() === 0) {
+            this.interactionState = InteractionState.Browsing;
+            this.updateInteractions();
+          }
         }
       );
   }
@@ -218,11 +225,16 @@ export class AppComponent implements OnInit {
         .filter(feature => feature.getProperties().firestoreId === item.payload.doc.id);
       const pathToRemove = this.pathsDetailsSource.getFeatures()
         .filter(feature => feature.getProperties().firestoreId === item.payload.doc.id);
+      const selectedPathToRemove = this.select.getFeatures().getArray()
+        .filter(feature => feature.getProperties().firestoreId === item.payload.doc.id);
       if (centerToRemove.length === 1) {
         this.pathsCentersSource.removeFeature(centerToRemove[0]);
       }
       if (pathToRemove.length === 1) {
         this.pathsDetailsSource.removeFeature(pathToRemove[0]);
+      }
+      if (selectedPathToRemove.length === 1) {
+        this.select.getFeatures().remove(selectedPathToRemove[0]);
       }
     });
   }
