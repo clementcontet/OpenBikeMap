@@ -1,6 +1,7 @@
 // The Cloud Functions for Firebase SDK to create Cloud Functions and setup triggers.
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import DocumentReference = admin.firestore.DocumentReference;
 
 // The Firebase Admin SDK to access Cloud Firestore.
 admin.initializeApp();
@@ -8,10 +9,6 @@ admin.initializeApp();
 const runtimeOpts = {
   timeoutSeconds: 300
 };
-
-export const testMaj = functions.https.onRequest((req, res) => {
-  res.json({res: 'Check9'});
-});
 
 export const initRandom = functions.runWith(runtimeOpts).https.onRequest(async (req, res) => {
   // bellecour
@@ -21,11 +18,11 @@ export const initRandom = functions.runWith(runtimeOpts).https.onRequest(async (
   // quais de rhône
   await addLine(4.841, 45.759, 4.8415, 45.765);
   // france
-  await addRandomLines(200, 0.05, -1.4, 7.7, 43.4, 48.9);
+  await addRandomLines(100, 0.05, -1.4, 7.7, 43.4, 48.9);
   // lyon
-  await addRandomLines(50, 0.005, 4.78, 4.95, 45.70, 45.82);
+  await addRandomLines(25, 0.005, 4.78, 4.95, 45.70, 45.82);
   // paris
-  await addRandomLines(50, 0.005, 2.24, 2.41, 48.83, 48.89);
+  await addRandomLines(25, 0.005, 2.24, 2.41, 48.83, 48.89);
 
   res.json({res: 'Ayé'});
 });
@@ -45,7 +42,12 @@ async function addLine(longStart: number, latStart: number, longEnd: number, lat
     type: 'Feature',
     // Nested arrays are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict
-    geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}}
+    geometry: {type: 'LineString', coordinates: {0: [longStart, latStart], 1: [longEnd, latEnd]}},
+    properties: {
+      security: 1 + 4 * Math.round(10 * Math.random()) / 10,
+      niceness: 1 + 4 * Math.round(10 * Math.random()) / 10,
+      creator: 'initScript'
+    },
   };
   const centerFeature = getCenter([[longStart, latStart], [longEnd, latEnd]]);
   await admin.firestore().collection('items')
@@ -58,11 +60,7 @@ async function addLine(longStart: number, latStart: number, longEnd: number, lat
 
 export const updateOnNewHistory = functions.firestore.document('/history/{history}/entries/{entry}')
   .onCreate(async (doc) => {
-    const item = doc.ref.parent.parent;
-    if (item === null) {
-      return;
-    }
-    const itemId = item.id;
+    const itemId = (doc.ref.parent.parent as DocumentReference).id;
     const itemSnapshot = await admin.firestore().collection('items')
       .doc(itemId)
       .get();
@@ -148,58 +146,48 @@ function toRadians(value: number) {
 }
 
 export const updateOnNewRating = functions.firestore.document('/ratings/{rating}/entries/{entry}')
-  .onCreate(async (doc) => {
-    const item = doc.ref.parent.parent;
-    if (item === null) {
-      return;
-    }
-    const itemId = item.id;
+  .onCreate((query) => processRating(query));
 
-    let averageSecurity = 0;
-    let averageNiceness = 0;
+export const updateOnUpdatedRating = functions.firestore.document('/ratings/{rating}/entries/{entry}')
+  .onUpdate((change) => processRating(change.after));
 
-    const ratingsRefs = await admin.firestore().collection('ratings')
-      .doc(itemId)
-      .collection('entries')
-      .listDocuments();
+async function processRating(doc: FirebaseFirestore.QueryDocumentSnapshot) {
+  const itemId = (doc.ref.parent.parent as DocumentReference).id;
 
-    for (const ratingRef of ratingsRefs) {
-      const rating = await ratingRef.get();
-      averageSecurity += (rating.data() as any).security;
-      averageNiceness += (rating.data() as any).niceness;
-    }
-    averageSecurity = averageSecurity / ratingsRefs.length;
-    averageNiceness = averageNiceness / ratingsRefs.length;
+  let averageSecurity = 0;
+  let averageNiceness = 0;
 
-    const itemSnapshot = await admin.firestore().collection('items')
-      .doc(itemId)
-      .get();
-    let pathFeature: any;
-    const currentItem = itemSnapshot.data();
+  const ratingsRefs = await admin.firestore().collection('ratings')
+    .doc(itemId)
+    .collection('entries')
+    .listDocuments();
 
-    if (currentItem !== undefined) {
-      // If item exists, only update its ratings
-      pathFeature = currentItem.path;
-      if (pathFeature.properties === undefined) {
-        pathFeature.properties = {};
-      }
-      pathFeature.properties.security = averageSecurity;
-      pathFeature.properties.niceness = averageNiceness;
-    } else {
-      // Otherwise, create only the ratings
-      pathFeature = {
-        path: {
-          properties:
-            {
-              security: averageSecurity,
-              niceness: averageNiceness,
-              creator: doc.ref.parent.id
-            }
-        }
-      };
-    }
-    await admin.firestore().collection('items')
-      .doc(itemId)
-      .set({path: pathFeature}, {merge: true});
-  });
+  for (const ratingRef of ratingsRefs) {
+    const rating = await ratingRef.get();
+    averageSecurity += (rating.data() as any).security;
+    averageNiceness += (rating.data() as any).niceness;
+  }
+  averageSecurity = Math.round(10 * averageSecurity / ratingsRefs.length) / 10;
+  averageNiceness = Math.round(10 * averageNiceness / ratingsRefs.length) / 10;
 
+  const itemSnapshot = await admin.firestore().collection('items')
+    .doc(itemId)
+    .get();
+  let pathFeature: any;
+  const currentItem = itemSnapshot.data();
+  if (currentItem !== undefined) {
+    // If item exists, only update its ratings
+    pathFeature = currentItem.path;
+    pathFeature.properties = {security: averageSecurity, niceness: averageNiceness};
+  } else {
+    // Otherwise, create only the ratings,
+    // the geometry will be updated later by updateOnNewHistory
+    pathFeature = {
+      properties: {security: averageSecurity, niceness: averageNiceness, creator: doc.ref.id},
+      type: 'Feature'
+    };
+  }
+  await admin.firestore().collection('items')
+    .doc(itemId)
+    .set({path: pathFeature}, {merge: true});
+}

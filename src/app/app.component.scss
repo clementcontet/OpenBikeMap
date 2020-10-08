@@ -8,6 +8,10 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
   width: 20%;
 }
 
+.mat-card {
+ margin: 16px;
+}
+
 #bike_map {
   display: flex;
   align-items: center;

@@ -18,16 +18,23 @@
 
     <mat-card>
       <p *ngIf="selectedPathDistance"> Distance : {{selectedPathDistance}}km</p>
-      <br/>
-      <p *ngIf="interactionState === InteractionState.Consulting">Avis de la communauté :</p>
-      <p *ngIf="interactionState === InteractionState.Modifying || interactionState === InteractionState.Creating"><u>Mon avis :</u></p>
+      <p *ngIf="interactionState === InteractionState.Consulting || interactionState === InteractionState.Modifying">
+        Sécurité : {{averageSecurityRating !== undefined ? averageSecurityRating + '/5' : '?'}}
+        <br/>
+        Jolitude : {{averageNicenessRating !== undefined ? averageNicenessRating + '/5' : '?'}}
+      </p>
+    </mat-card>
+    <mat-card *ngIf="interactionState === InteractionState.Modifying || interactionState === InteractionState.Creating">
+      <p>Mon avis :</p>
       Piste sécurisée ?
-      <bar-rating [(rate)]="securityRating" max="5"
-                  [readOnly]="interactionState === InteractionState.Consulting"></bar-rating>
+      <bar-rating
+        [(rate)]="securityRating"
+        max="5" (rateChange)="onChangeRating()"></bar-rating>
       <br/>
       Jolie balade ?
-      <bar-rating [(rate)]="nicenessRating" max="5"
-                  [readOnly]="interactionState === InteractionState.Consulting"></bar-rating>
+      <bar-rating
+        [(rate)]="nicenessRating"
+        max="5" (rateChange)="onChangeRating()"></bar-rating>
     </mat-card>
 
     <div *ngIf="interactionState === InteractionState.Modifying">

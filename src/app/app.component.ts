@@ -68,8 +68,12 @@ export class AppComponent implements OnInit {
   private readonly firestore: AngularFirestore;
   private readonly fireAuth: AngularFireAuth;
   user: User;
+  averageSecurityRating: number;
+  averageNicenessRating: number;
   securityRating: number;
   nicenessRating: number;
+  geometryChanged: boolean;
+  ratingChanged: boolean;
   private readonly dialog: MatDialog;
   private readonly snackBar: MatSnackBar;
   private readonly location: Location;
@@ -244,13 +248,17 @@ export class AppComponent implements OnInit {
   private getFeaturesCollection(items: DocumentChangeAction<any>[], getCenters: boolean) {
     return {
       type: 'FeatureCollection',
-      features: items.map((item: DocumentChangeAction<any>) => {
-        if (getCenters) {
-          return this.getFeature(item.payload.doc.data().center, item.payload.doc.id);
-        } else {
-          return this.getFeature(item.payload.doc.data().path, item.payload.doc.id);
-        }
-      })
+      features: items.filter(item => getCenters ?
+        !!item.payload.doc.data().center
+        : (!!item.payload.doc.data().path && !!item.payload.doc.data().path.geometry)
+      )
+        .map((item: DocumentChangeAction<any>) => {
+          if (getCenters) {
+            return this.getFeature(item.payload.doc.data().center, item.payload.doc.id);
+          } else {
+            return this.getFeature(item.payload.doc.data().path, item.payload.doc.id);
+          }
+        })
     };
   }
 
@@ -335,7 +343,8 @@ export class AppComponent implements OnInit {
         center: olProj.fromLonLat([4.832, 45.758]),
         zoom: 15
       }),
-      controls: defaultControls().extend([new ScaleLine({minWidth: 150})])
+      controls: defaultControls({attributionOptions: {collapsible: true}})
+        .extend([new ScaleLine()])
     });
   }
 
@@ -380,6 +389,7 @@ export class AppComponent implements OnInit {
 
     // Simplify lines that have duplicated points
     this.modify.on('modifyend', (modifyEvent: ModifyEvent) => {
+      this.geometryChanged = true;
       modifyEvent.features.forEach(feature => this.removeDuplicates(feature));
       this.updateInteractions();
     });
@@ -453,6 +463,8 @@ export class AppComponent implements OnInit {
 
   startModification() {
     if (this.user) {
+      this.geometryChanged = false;
+      this.ratingChanged = false;
       this.interactionState = InteractionState.Modifying;
       this.updateInteractions();
     } else {
@@ -468,38 +480,54 @@ export class AppComponent implements OnInit {
 
   validateEdition() {
     const feature = this.select.getFeatures().item(0);
-    const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
-    const coordinates = (geometry as LineString).getCoordinates();
-    // Nested arrays are not supported in Cloud Firestore (yet?)
-    // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
-    const coordinatesMap = Object.assign({}, coordinates);
-    const history = {
-      creator: this.user.email,
-      feature: {type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}}
-    };
-    if (this.interactionState === InteractionState.Creating) {
-      this.pathsDetailsSource.removeFeature(feature);
-    }
     let itemId: string;
     if (this.interactionState === InteractionState.Creating) {
+      this.pathsDetailsSource.removeFeature(feature);
       itemId = this.firestore.createId();
     } else {
       itemId = feature.getProperties().firestoreId;
     }
-
-    this.firestore.collection('history').doc(itemId).collection('entries')
-      .add(history)
-      .then(() => this.firestore.collection('ratings').doc(itemId).collection('entries')
-        .doc(this.user.email).set({security: this.securityRating, niceness: this.nicenessRating}));
+    this.updateGeometryIfNeeded(feature, itemId)
+      .then(() => this.updateRatingsIfNeeded(itemId));
     this.interactionState = InteractionState.Browsing;
     this.updateInteractions();
   }
 
+  updateGeometryIfNeeded(feature: Feature<Geometry>, itemId: string): Promise<any> {
+    if (this.geometryChanged || this.interactionState === InteractionState.Creating
+    ) {
+      const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
+      const coordinates = (geometry as LineString).getCoordinates();
+      // Nested arrays are not supported in Cloud Firestore (yet?)
+      // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
+      const coordinatesMap = Object.assign({}, coordinates);
+      const history = {
+        creator: this.user.email,
+        feature: {type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}}
+      };
+      return this.firestore.collection('history').doc(itemId).collection('entries')
+        .add(history);
+    } else {
+      return Promise.resolve(null);
+    }
+  }
+
+  updateRatingsIfNeeded(itemId: string) {
+    if (this.ratingChanged) {
+      this.firestore.collection('ratings').doc(itemId).collection('entries')
+        .doc(this.user.email).set({security: this.securityRating, niceness: this.nicenessRating});
+    }
+  }
+
   cancelEdition() {
     const feature = this.select.getFeatures().item(0);
-    this.pathsDetailsSource.removeFeature(feature);
 
-    if (this.interactionState === InteractionState.Modifying) {
+    if (this.interactionState === InteractionState.Creating) {
+      this.pathsDetailsSource.removeFeature(feature);
+    }
+
+    if (this.interactionState === InteractionState.Modifying && this.geometryChanged) {
+      this.pathsDetailsSource.removeFeature(feature);
       this.firestore.collection('items').doc(feature.getProperties().firestoreId)
         .get()
         .subscribe(originalItem => {
@@ -512,6 +540,10 @@ export class AppComponent implements OnInit {
 
     this.interactionState = InteractionState.Browsing;
     this.updateInteractions();
+  }
+
+  onChangeRating() {
+    this.ratingChanged = true;
   }
 
   updateInteractions() {
@@ -535,11 +567,26 @@ export class AppComponent implements OnInit {
       const geometry = feature.getGeometry()
         .clone()
         .transform('EPSG:3857', 'EPSG:4326');
-      if (geometry instanceof LineString) {
-        this.selectedPathDistance = Math.round(this.computeDistance(geometry) / 100) / 10;
-      }
+      this.selectedPathDistance = Math.round(this.computeDistance(geometry as LineString) / 100) / 10;
+      this.averageSecurityRating = feature.getProperties().security;
+      this.averageNicenessRating = feature.getProperties().niceness;
     } else {
       this.select.getFeatures().clear();
+    }
+
+    if (this.interactionState === InteractionState.Modifying) {
+      const itemId = this.select.getFeatures().item(0).getProperties().firestoreId;
+      this.firestore.collection('ratings')
+        .doc(itemId).collection('entries').doc(this.user.email).get()
+        .subscribe(ratingSnapshot => {
+          if (ratingSnapshot.exists) {
+            this.securityRating = ratingSnapshot.data().security;
+            this.nicenessRating = ratingSnapshot.data().niceness;
+          } else {
+            this.securityRating = undefined;
+            this.nicenessRating = undefined;
+          }
+        });
     }
   }
 
