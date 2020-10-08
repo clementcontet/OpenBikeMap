@@ -305,12 +305,44 @@ export class AppComponent implements OnInit {
       gradient: ['#fff', '#ff7900']
     });
 
+    function getPathStyle(feature: Feature) {
+      const badR = 0xE7;
+      const badG = 0x00;
+      const badB = 0x02;
+      const mediumR = 0xFF;
+      const mediumG = 0xCD;
+      const mediumB = 0x0B;
+      const mediumRating = 2;
+      const goodR = 0x3D;
+      const goodG = 0xE3;
+      const goodB = 0x5A;
+      const goodRating = 4;
+
+      // From 0 to 4
+      const rating = (feature.getProperties().security + feature.getProperties().niceness) / 2 - 1;
+
+      let red: number;
+      let green: number;
+      let blue: number;
+      if (rating < mediumRating) {
+        red = (badR * (mediumRating - rating) + mediumR * rating) / mediumRating;
+        green = (badG * (mediumRating - rating) + mediumG * rating) / mediumRating;
+        blue = (badB * (mediumRating - rating) + mediumB * rating) / mediumRating;
+      } else {
+        red = (mediumR * (goodRating - rating) + goodR * (rating - mediumRating)) / 2;
+        green = (mediumG * (goodRating - rating) + goodG * (rating - mediumRating)) / 2;
+        blue = (mediumB * (goodRating - rating) + goodB * (rating - mediumRating)) / 2;
+      }
+
+      return new Style({
+        stroke: new Stroke({color: [red, green, blue], width: 6})
+      });
+    }
+
     const pathsLayer = new VectorLayer({
       source: this.pathsDetailsSource,
       minZoom: this.departmentThresholdZoom,
-      style: new Style({
-        stroke: new Stroke({color: '#ff7900', width: 6})
-      }),
+      style: (feature: Feature) => getPathStyle(feature)
     });
 
     this.select = new Select({layers: [pathsLayer], toggleCondition: never});
@@ -494,8 +526,7 @@ export class AppComponent implements OnInit {
   }
 
   updateGeometryIfNeeded(feature: Feature<Geometry>, itemId: string): Promise<any> {
-    if (this.geometryChanged || this.interactionState === InteractionState.Creating
-    ) {
+    if (this.geometryChanged || this.interactionState === InteractionState.Creating) {
       const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
       const coordinates = (geometry as LineString).getCoordinates();
       // Nested arrays are not supported in Cloud Firestore (yet?)
