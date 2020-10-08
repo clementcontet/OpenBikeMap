@@ -10,7 +10,7 @@ const runtimeOpts = {
 };
 
 export const testMaj = functions.https.onRequest((req, res) => {
-  res.json({res: 'Check6'});
+  res.json({res: 'Check9'});
 });
 
 export const initRandom = functions.runWith(runtimeOpts).https.onRequest(async (req, res) => {
@@ -59,11 +59,13 @@ async function addLine(longStart: number, latStart: number, longEnd: number, lat
 export const updateOnNewHistory = functions.firestore.document('/history/{history}/entries/{entry}')
   .onCreate(async (doc) => {
     const item = doc.ref.parent.parent;
-    if (item == null) {
+    if (item === null) {
       return;
     }
     const itemId = item.id;
-    const itemSnapshot = await admin.firestore().collection('items').doc(itemId).get();
+    const itemSnapshot = await admin.firestore().collection('items')
+      .doc(itemId)
+      .get();
     let pathFeature: any;
     const currentItem = itemSnapshot.data();
     if (currentItem !== undefined) {
@@ -144,4 +146,60 @@ function computeDistance(lat1: number, lon1: number, lat2: number, lon2: number)
 function toRadians(value: number) {
   return value * Math.PI / 180;
 }
+
+export const updateOnNewRating = functions.firestore.document('/ratings/{rating}/entries/{entry}')
+  .onCreate(async (doc) => {
+    const item = doc.ref.parent.parent;
+    if (item === null) {
+      return;
+    }
+    const itemId = item.id;
+
+    let averageSecurity = 0;
+    let averageNiceness = 0;
+
+    const ratingsRefs = await admin.firestore().collection('ratings')
+      .doc(itemId)
+      .collection('entries')
+      .listDocuments();
+
+    for (const ratingRef of ratingsRefs) {
+      const rating = await ratingRef.get();
+      averageSecurity += (rating.data() as any).security;
+      averageNiceness += (rating.data() as any).niceness;
+    }
+    averageSecurity = averageSecurity / ratingsRefs.length;
+    averageNiceness = averageNiceness / ratingsRefs.length;
+
+    const itemSnapshot = await admin.firestore().collection('items')
+      .doc(itemId)
+      .get();
+    let pathFeature: any;
+    const currentItem = itemSnapshot.data();
+
+    if (currentItem !== undefined) {
+      // If item exists, only update its ratings
+      pathFeature = currentItem.path;
+      if (pathFeature.properties === undefined) {
+        pathFeature.properties = {};
+      }
+      pathFeature.properties.security = averageSecurity;
+      pathFeature.properties.niceness = averageNiceness;
+    } else {
+      // Otherwise, create only the ratings
+      pathFeature = {
+        path: {
+          properties:
+            {
+              security: averageSecurity,
+              niceness: averageNiceness,
+              creator: doc.ref.parent.id
+            }
+        }
+      };
+    }
+    await admin.firestore().collection('items')
+      .doc(itemId)
+      .set({path: pathFeature}, {merge: true});
+  });
 

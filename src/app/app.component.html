@@ -5,30 +5,39 @@
         mat-flat-button color="primary" (click)="startModification()">Modifier
       </button>
     </div>
-
-    <mat-card *ngIf="selectedPathDistance">
-      Distance : {{selectedPathDistance}}km
-    </mat-card>
+    <div *ngIf="interactionState === InteractionState.Modifying">
+      <button
+        mat-flat-button color="warn" (click)="cancelEdition()">Annuler
+      </button>
+    </div>
+    <div *ngIf="interactionState === InteractionState.Creating">
+      <button
+        mat-flat-button color="warn" (click)="cancelEdition()">Annuler la création
+      </button>
+    </div>
 
     <mat-card>
-      Coolitude ?<br/>
-      <mat-slider thumbLabel min="1" max="5" step="1" value="3"></mat-slider>
+      <p *ngIf="selectedPathDistance"> Distance : {{selectedPathDistance}}km</p>
+      <br/>
+      <p *ngIf="interactionState === InteractionState.Consulting">Avis de la communauté :</p>
+      <p *ngIf="interactionState === InteractionState.Modifying || interactionState === InteractionState.Creating"><u>Mon avis :</u></p>
+      Piste sécurisée ?
+      <bar-rating [(rate)]="securityRating" max="5"
+                  [readOnly]="interactionState === InteractionState.Consulting"></bar-rating>
+      <br/>
+      Jolie balade ?
+      <bar-rating [(rate)]="nicenessRating" max="5"
+                  [readOnly]="interactionState === InteractionState.Consulting"></bar-rating>
     </mat-card>
 
     <div *ngIf="interactionState === InteractionState.Modifying">
       <button
         mat-flat-button color="accent" (click)="validateEdition()">Valider la modification
       </button>
-      <button
-        mat-flat-button color="warn" (click)="cancelEdition()">Annuler la modification
-      </button>
     </div>
     <div *ngIf="interactionState === InteractionState.Creating">
       <button
         mat-flat-button color="accent" (click)="validateEdition()">Créer le chemin
-      </button>
-      <button
-        mat-flat-button color="warn" (click)="cancelEdition()">Annuler la création
       </button>
     </div>
   </mat-sidenav>

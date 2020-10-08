@@ -8,7 +8,6 @@ import {AngularFirestoreModule} from '@angular/fire/firestore';
 import {environment} from '../environments/environment';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {MatSidenavModule} from '@angular/material/sidenav';
-import {MatSliderModule} from '@angular/material/slider';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCardModule} from '@angular/material/card';
 import {MatIconModule} from '@angular/material/icon';
@@ -21,6 +20,7 @@ import {AngularFireAuthModule} from '@angular/fire/auth';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
 import {MatSnackBarModule} from '@angular/material/snack-bar';
+import {BarRatingModule} from 'ngx-bar-rating';
 
 @NgModule({
   declarations: [
@@ -36,7 +36,6 @@ import {MatSnackBarModule} from '@angular/material/snack-bar';
     AngularFireAuthModule,
     BrowserAnimationsModule,
     MatSidenavModule,
-    MatSliderModule,
     MatButtonModule,
     MatTooltipModule,
     MatCardModule,
@@ -46,6 +45,7 @@ import {MatSnackBarModule} from '@angular/material/snack-bar';
     MatFormFieldModule,
     MatInputModule,
     FormsModule,
+    BarRatingModule,
   ],
   providers: [],
   bootstrap: [AppComponent]

@@ -3,8 +3,9 @@ import {Location} from '@angular/common';
 import {Component, OnInit} from '@angular/core';
 import {AngularFirestore} from '@angular/fire/firestore';
 import {AngularFireAuth} from '@angular/fire/auth';
-import {DocumentChangeAction, QueryDocumentSnapshot} from '@angular/fire/firestore/interfaces';
+import {DocumentChangeAction} from '@angular/fire/firestore/interfaces';
 import {MatDialog} from '@angular/material/dialog';
+import {MatSnackBar} from '@angular/material/snack-bar';
 import {User} from 'firebase';
 import {ScaleLine, defaults as defaultControls} from 'ol/control';
 import {never, primaryAction} from 'ol/events/condition';
@@ -31,7 +32,6 @@ import * as sphere from 'ol/sphere';
 import {Fill, Stroke, Style, Text} from 'ol/style';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
-import {MatSnackBar} from '@angular/material/snack-bar';
 
 enum InteractionState {
   Browsing,
@@ -68,6 +68,8 @@ export class AppComponent implements OnInit {
   private readonly firestore: AngularFirestore;
   private readonly fireAuth: AngularFireAuth;
   user: User;
+  securityRating: number;
+  nicenessRating: number;
   private readonly dialog: MatDialog;
   private readonly snackBar: MatSnackBar;
   private readonly location: Location;
@@ -477,19 +479,18 @@ export class AppComponent implements OnInit {
     };
     if (this.interactionState === InteractionState.Creating) {
       this.pathsDetailsSource.removeFeature(feature);
-      this.firestore.collection('history')
-        .add({})
-        .then(ref => {
-          this.firestore.collection('history').doc(ref.id).collection('entries').add(history);
-        });
-    } else if (this.interactionState === InteractionState.Modifying) {
-      if (geometry.getType() === 'LineString') {
-        this.firestore.collection('history')
-          .doc(feature.getProperties().firestoreId)
-          .collection('entries')
-          .add(history);
-      }
     }
+    let itemId: string;
+    if (this.interactionState === InteractionState.Creating) {
+      itemId = this.firestore.createId();
+    } else {
+      itemId = feature.getProperties().firestoreId;
+    }
+
+    this.firestore.collection('history').doc(itemId).collection('entries')
+      .add(history)
+      .then(() => this.firestore.collection('ratings').doc(itemId).collection('entries')
+        .doc(this.user.email).set({security: this.securityRating, niceness: this.nicenessRating}));
     this.interactionState = InteractionState.Browsing;
     this.updateInteractions();
   }
