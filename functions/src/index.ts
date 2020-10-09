@@ -61,31 +61,34 @@ async function addLine(longStart: number, latStart: number, longEnd: number, lat
 export const updateOnNewHistory = functions.firestore.document('/history/{history}/entries/{entry}')
   .onCreate(async (doc) => {
     const itemId = (doc.ref.parent.parent as DocumentReference).id;
-    const itemSnapshot = await admin.firestore().collection('items')
-      .doc(itemId)
-      .get();
-    let pathFeature: any;
-    const currentItem = itemSnapshot.data();
-    if (currentItem !== undefined) {
-      // If item exists, only update its geometry
-      pathFeature = currentItem.path;
-      pathFeature.geometry = doc.data().feature.geometry;
-    } else {
-      // Otherwise, copy the entire feature from history
-      pathFeature = doc.data().feature;
-      pathFeature.properties = {creator: doc.data().creator};
-    }
+    const itemRef = admin.firestore().collection('items').doc(itemId);
 
     // Nested array are not supported in Cloud Firestore (yet?)
     // so 'coordinates' is stored as a dict and we change it back
     // to an array
     const coordinates: number[][] = Object.values(doc.data().feature.geometry.coordinates);
     const centerFeature = getCenter(coordinates);
-    await admin.firestore().collection('items').doc(itemId).set(
-      {
-        path: pathFeature,
-        center: centerFeature
-      });
+
+    await admin.firestore().runTransaction(async transaction => {
+      const itemSnapshot = await transaction.get(itemRef);
+      let pathFeature: any;
+      const currentItem = itemSnapshot.data();
+      if (currentItem !== undefined) {
+        // If item exists, only update its geometry
+        pathFeature = currentItem.path;
+        pathFeature.geometry = doc.data().feature.geometry;
+      } else {
+        // Otherwise, copy the entire feature from history
+        pathFeature = doc.data().feature;
+        pathFeature.properties = {creator: doc.data().creator};
+      }
+      await transaction.set(
+        itemRef,
+        {
+          path: pathFeature,
+          center: centerFeature
+        });
+    });
   });
 
 function getCenter(lineCoords: number[][]) {
@@ -153,6 +156,7 @@ export const updateOnUpdatedRating = functions.firestore.document('/ratings/{rat
 
 async function processRating(doc: FirebaseFirestore.QueryDocumentSnapshot) {
   const itemId = (doc.ref.parent.parent as DocumentReference).id;
+  const itemRef = admin.firestore().collection('items').doc(itemId);
 
   let averageSecurity = 0;
   let averageNiceness = 0;
@@ -170,24 +174,26 @@ async function processRating(doc: FirebaseFirestore.QueryDocumentSnapshot) {
   averageSecurity = Math.round(10 * averageSecurity / ratingsRefs.length) / 10;
   averageNiceness = Math.round(10 * averageNiceness / ratingsRefs.length) / 10;
 
-  const itemSnapshot = await admin.firestore().collection('items')
-    .doc(itemId)
-    .get();
-  let pathFeature: any;
-  const currentItem = itemSnapshot.data();
-  if (currentItem !== undefined) {
-    // If item exists, only update its ratings
-    pathFeature = currentItem.path;
-    pathFeature.properties = {security: averageSecurity, niceness: averageNiceness};
-  } else {
-    // Otherwise, create only the ratings,
-    // the geometry will be updated later by updateOnNewHistory
-    pathFeature = {
-      properties: {security: averageSecurity, niceness: averageNiceness, creator: doc.ref.id},
-      type: 'Feature'
-    };
-  }
-  await admin.firestore().collection('items')
-    .doc(itemId)
-    .set({path: pathFeature}, {merge: true});
+  await admin.firestore().runTransaction(async transaction => {
+    const itemSnapshot = await transaction.get(itemRef);
+    let feature: any;
+    const currentItem = itemSnapshot.data();
+    if (currentItem !== undefined) {
+      // If item exists, only update its ratings
+      feature = currentItem;
+      feature.path.properties.security = averageSecurity;
+      feature.path.properties.niceness = averageNiceness;
+    } else {
+      // Otherwise, create only the ratings,
+      // the path geometry and center will be updated later by updateOnNewHistory
+      feature = {
+        path:
+          {
+            properties: {security: averageSecurity, niceness: averageNiceness, creator: doc.ref.id},
+            type: 'Feature'
+          }
+      };
+    }
+    await transaction.set(itemRef, feature);
+  });
 }
