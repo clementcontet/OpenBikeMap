@@ -61,9 +61,12 @@ export class AppComponent implements OnInit {
   private countryLayer: VectorLayer;
   private regionsLayer: VectorLayer;
   private departmentsLayer: VectorLayer;
+  private readonly gpsProjection = 'EPSG:4326';
+  private readonly osmProjection = 'EPSG:3857';
   private readonly countryThresholdZoom = 6;
   private readonly regionThresholdZoom = 8;
   private readonly departmentThresholdZoom = 10;
+  private readonly nicenessInfoThresholdZoom = 14;
   private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#333'})});
   private readonly firestore: AngularFirestore;
   private readonly fireAuth: AngularFireAuth;
@@ -77,7 +80,7 @@ export class AppComponent implements OnInit {
   private readonly dialog: MatDialog;
   private readonly snackBar: MatSnackBar;
   private readonly location: Location;
-  private readonly geoJson = new GeoJSON({featureProjection: 'EPSG:3857'});
+  private readonly geoJson = new GeoJSON({featureProjection: this.osmProjection});
 
   featureSelected() {
     return this.interactionState === InteractionState.Creating
@@ -302,47 +305,13 @@ export class AppComponent implements OnInit {
       source: this.pathsCentersSource,
       maxZoom: this.departmentThresholdZoom,
       weight: feature => feature.getProperties().distance,
-      gradient: ['#fff', '#ff7900']
+      gradient: ['#fff', '#009688']
     });
-
-    function getPathStyle(feature: Feature) {
-      const badR = 0xE7;
-      const badG = 0x00;
-      const badB = 0x02;
-      const mediumR = 0xFF;
-      const mediumG = 0xCD;
-      const mediumB = 0x0B;
-      const mediumRating = 2;
-      const goodR = 0x3D;
-      const goodG = 0xE3;
-      const goodB = 0x5A;
-      const goodRating = 4;
-
-      // From 0 to 4
-      const rating = (feature.getProperties().security + feature.getProperties().niceness) / 2 - 1;
-
-      let red: number;
-      let green: number;
-      let blue: number;
-      if (rating < mediumRating) {
-        red = (badR * (mediumRating - rating) + mediumR * rating) / mediumRating;
-        green = (badG * (mediumRating - rating) + mediumG * rating) / mediumRating;
-        blue = (badB * (mediumRating - rating) + mediumB * rating) / mediumRating;
-      } else {
-        red = (mediumR * (goodRating - rating) + goodR * (rating - mediumRating)) / 2;
-        green = (mediumG * (goodRating - rating) + goodG * (rating - mediumRating)) / 2;
-        blue = (mediumB * (goodRating - rating) + goodB * (rating - mediumRating)) / 2;
-      }
-
-      return new Style({
-        stroke: new Stroke({color: [red, green, blue], width: 6})
-      });
-    }
 
     const pathsLayer = new VectorLayer({
       source: this.pathsDetailsSource,
       minZoom: this.departmentThresholdZoom,
-      style: (feature: Feature) => getPathStyle(feature)
+      style: (feature: Feature, resolution: number) => this.getPathStyle(feature, resolution)
     });
 
     this.select = new Select({layers: [pathsLayer], toggleCondition: never});
@@ -380,6 +349,36 @@ export class AppComponent implements OnInit {
     });
   }
 
+  private getPathStyle(feature: Feature, resolution: number) {
+    const securityRating = feature.getProperties().security;
+    const nicenessRating = feature.getProperties().niceness;
+    const pathWidth = Math.max(2, 10 / resolution);
+    const styles = [new Style({
+      stroke: new Stroke({color: this.getRatingColor(securityRating), width: pathWidth})
+    })];
+    if (this.bikeMap.getView().getZoom() > this.nicenessInfoThresholdZoom) {
+      styles.push(new Style(
+        {
+          stroke: new Stroke({
+            color: this.getRatingColor(nicenessRating),
+            width: 2 * pathWidth,
+            lineDash: [0, 10 * pathWidth]
+          })
+        }));
+    }
+    return styles;
+  }
+
+  private getRatingColor(rating: number): string {
+    if (rating <= 2) {
+      return '#DC3C14';
+    } else if (rating >= 4) {
+      return '#32C832';
+    } else {
+      return '#FFCC00';
+    }
+  }
+
   private getAreaStyle(areaFeature: Feature, isFrance: boolean): Style[] {
     const distance = this.pathsCentersSource.getFeatures()
       .filter(pathFeature => areaFeature.getGeometry().intersectsCoordinate((pathFeature.getGeometry() as Point).getCoordinates()))
@@ -390,7 +389,7 @@ export class AppComponent implements OnInit {
     if (isFrance) {
       // https://fr.wikipedia.org/wiki/Centre_de_la_France
       areaCenter = new Point([2 + (25 + 0 / 60) / 60, 46 + (45 + 7 / 60) / 60])
-        .transform('EPSG:4326', 'EPSG:3857');
+        .transform(this.gpsProjection, this.osmProjection);
     } else {
       areaCenter = new Point(getCenter(areaFeature.getGeometry().getExtent()));
     }
@@ -527,7 +526,9 @@ export class AppComponent implements OnInit {
 
   updateGeometryIfNeeded(feature: Feature<Geometry>, itemId: string): Promise<any> {
     if (this.geometryChanged || this.interactionState === InteractionState.Creating) {
-      const geometry = feature.getGeometry().clone().transform('EPSG:3857', 'EPSG:4326');
+      const geometry = feature.getGeometry()
+        .clone()
+        .transform(this.osmProjection, this.gpsProjection);
       const coordinates = (geometry as LineString).getCoordinates();
       // Nested arrays are not supported in Cloud Firestore (yet?)
       // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
@@ -599,7 +600,7 @@ export class AppComponent implements OnInit {
       const feature = this.select.getFeatures().item(0);
       const geometry = feature.getGeometry()
         .clone()
-        .transform('EPSG:3857', 'EPSG:4326');
+        .transform(this.osmProjection, this.gpsProjection);
       this.selectedPathDistance = Math.round(this.computeDistance(geometry as LineString) / 100) / 10;
       this.averageSecurityRating = feature.getProperties().security;
       this.averageNicenessRating = feature.getProperties().niceness;
