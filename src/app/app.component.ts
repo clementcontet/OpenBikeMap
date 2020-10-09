@@ -6,7 +6,7 @@ import {AngularFireAuth} from '@angular/fire/auth';
 import {DocumentChangeAction} from '@angular/fire/firestore/interfaces';
 import {MatDialog} from '@angular/material/dialog';
 import {MatSnackBar} from '@angular/material/snack-bar';
-import {User} from 'firebase';
+import {User, firestore} from 'firebase';
 import {ScaleLine, defaults as defaultControls} from 'ol/control';
 import {never, primaryAction} from 'ol/events/condition';
 import {getCenter} from 'ol/extent';
@@ -68,8 +68,8 @@ export class AppComponent implements OnInit {
   private readonly departmentThresholdZoom = 10;
   private readonly nicenessInfoThresholdZoom = 14;
   private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#333'})});
-  private readonly firestore: AngularFirestore;
-  private readonly fireAuth: AngularFireAuth;
+  private readonly angularFirestore: AngularFirestore;
+  private readonly angularFireAuth: AngularFireAuth;
   user: User;
   averageSecurityRating: number;
   averageNicenessRating: number;
@@ -89,14 +89,14 @@ export class AppComponent implements OnInit {
   }
 
   constructor(
-    firestore: AngularFirestore,
-    fireAuth: AngularFireAuth,
+    angularFirestore: AngularFirestore,
+    angularFireAuth: AngularFireAuth,
     dialog: MatDialog,
     snackBar: MatSnackBar,
     location: Location
   ) {
-    this.firestore = firestore;
-    this.fireAuth = fireAuth;
+    this.angularFirestore = angularFirestore;
+    this.angularFireAuth = angularFireAuth;
     this.dialog = dialog;
     this.snackBar = snackBar;
     this.location = location;
@@ -107,7 +107,7 @@ export class AppComponent implements OnInit {
     this.createMap();
     this.listenToEvents();
     this.updateInteractions();
-    this.fireAuth.user.subscribe(user => {
+    this.angularFireAuth.user.subscribe(user => {
       this.user = user;
       this.verifyIfEmailLinkValidationIsNeeded();
     });
@@ -116,7 +116,7 @@ export class AppComponent implements OnInit {
   // https://firebase.google.com/docs/auth/web/email-link-auth?hl=en
   private verifyIfEmailLinkValidationIsNeeded() {
     if (!this.user) {
-      this.fireAuth.isSignInWithEmailLink(window.location.href)
+      this.angularFireAuth.isSignInWithEmailLink(window.location.href)
         .then(isSignInWithEmailLink => {
           if (isSignInWithEmailLink) {
             this.validateEmailLink();
@@ -128,7 +128,7 @@ export class AppComponent implements OnInit {
   private validateEmailLink() {
     const email = window.localStorage.getItem('emailForSignIn');
     if (email) {
-      this.fireAuth.signInWithEmailLink(email, window.location.href)
+      this.angularFireAuth.signInWithEmailLink(email, window.location.href)
         .then((result) => {
           window.localStorage.removeItem('emailForSignIn');
           this.location.replaceState('/');
@@ -159,7 +159,7 @@ export class AppComponent implements OnInit {
           // This must be true.
           handleCodeInApp: true
         };
-        this.fireAuth.sendSignInLinkToEmail(result, options)
+        this.angularFireAuth.sendSignInLinkToEmail(result, options)
           .then(() => {
             // The link was successfully sent. Inform the user.
             // Save the email locally so you don't need to ask the user for it again
@@ -189,13 +189,13 @@ export class AppComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe(logoutValidated => {
       if (logoutValidated) {
-        this.fireAuth.signOut();
+        this.angularFireAuth.signOut();
       }
     });
   }
 
   private subscribeToFirestoreModifications() {
-    this.firestore.collection('items').stateChanges()
+    this.angularFirestore.collection('items').stateChanges()
       .subscribe(
         (items: DocumentChangeAction<any>[]) => {
           this.removeFeatures(items.filter(item => item.payload.type === 'removed'));
@@ -514,7 +514,7 @@ export class AppComponent implements OnInit {
     let itemId: string;
     if (this.interactionState === InteractionState.Creating) {
       this.pathsDetailsSource.removeFeature(feature);
-      itemId = this.firestore.createId();
+      itemId = this.angularFirestore.createId();
     } else {
       itemId = feature.getProperties().firestoreId;
     }
@@ -535,9 +535,10 @@ export class AppComponent implements OnInit {
       const coordinatesMap = Object.assign({}, coordinates);
       const history = {
         creator: this.user.email,
-        feature: {type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}}
-      };
-      return this.firestore.collection('history').doc(itemId).collection('entries')
+        created : firestore.Timestamp.now(),
+        feature: {type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}},
+    };
+      return this.angularFirestore.collection('history').doc(itemId).collection('entries')
         .add(history);
     } else {
       return Promise.resolve(null);
@@ -546,7 +547,7 @@ export class AppComponent implements OnInit {
 
   updateRatingsIfNeeded(itemId: string) {
     if (this.ratingChanged) {
-      this.firestore.collection('ratings').doc(itemId).collection('entries')
+      this.angularFirestore.collection('ratings').doc(itemId).collection('entries')
         .doc(this.user.email).set({security: this.securityRating, niceness: this.nicenessRating});
     }
   }
@@ -560,7 +561,7 @@ export class AppComponent implements OnInit {
 
     if (this.interactionState === InteractionState.Modifying && this.geometryChanged) {
       this.pathsDetailsSource.removeFeature(feature);
-      this.firestore.collection('items').doc(feature.getProperties().firestoreId)
+      this.angularFirestore.collection('items').doc(feature.getProperties().firestoreId)
         .get()
         .subscribe(originalItem => {
             this.pathsDetailsSource.addFeature(
@@ -610,7 +611,7 @@ export class AppComponent implements OnInit {
 
     if (this.interactionState === InteractionState.Modifying) {
       const itemId = this.select.getFeatures().item(0).getProperties().firestoreId;
-      this.firestore.collection('ratings')
+      this.angularFirestore.collection('ratings')
         .doc(itemId).collection('entries').doc(this.user.email).get()
         .subscribe(ratingSnapshot => {
           if (ratingSnapshot.exists) {
