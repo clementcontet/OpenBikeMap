@@ -584,6 +584,8 @@ export class AppComponent implements OnInit {
     this.modify.setActive(this.interactionState === InteractionState.Modifying);
 
     if (this.interactionState === InteractionState.Drawing) {
+      this.securityRating = undefined;
+      this.nicenessRating = undefined;
       this.snackBar.open(
         'Tracez le chemin en cliquant\n[Entrée] pour valider / [Esc] pour annuler',
         null,
