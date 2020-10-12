@@ -128,7 +128,7 @@ function getCenter(lineCoords: number[][]) {
   };
 }
 
-function computeDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+function computeDistance(lon1: number, lat1: number, lon2: number, lat2: number) {
   // See http://www.movable-type.co.uk/scripts/latlong.html
   const R = 6371e3;
   const φ1 = toRadians(lat1);
