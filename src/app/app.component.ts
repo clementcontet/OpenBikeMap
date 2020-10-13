@@ -132,15 +132,28 @@ export class AppComponent implements OnInit {
         .then((result) => {
           window.localStorage.removeItem('emailForSignIn');
           this.location.replaceState('/');
+        })
+        .catch(error => {
+          this.dialog.open(PopupDialogComponent, {
+            width: '250px',
+            data: {
+              header: 'Attention',
+              content: 'Lien invalide, veuillez recommencer l\'authentification.',
+              cancelPossible: false
+            }
+          });
+          this.location.replaceState('/');
         });
     } else {
       this.dialog.open(PopupDialogComponent, {
         width: '250px',
         data: {
+          header: 'Attention',
           content: 'Lien invalide sur cet appareil, veuillez recommencer l\'authentification.',
           cancelPossible: false
         }
       });
+      this.location.replaceState('/');
     }
   }
 
@@ -168,6 +181,7 @@ export class AppComponent implements OnInit {
             this.dialog.open(PopupDialogComponent, {
               width: '250px',
               data: {
+                header: 'Info',
                 content: 'L\'email de connexion a été envoyé.',
                 cancelPossible: false
               }
@@ -181,7 +195,8 @@ export class AppComponent implements OnInit {
     const dialogRef = this.dialog.open(PopupDialogComponent, {
       width: '250px',
       data: {
-        content: 'Voulez-vous vous déconnecter ?',
+        header: 'Info',
+        content: 'Se déconnecter de ' + this.user.email + ' ?',
         cancelPossible: true,
         validate: false
       }
@@ -474,6 +489,7 @@ export class AppComponent implements OnInit {
       this.dialog.open(PopupDialogComponent, {
         width: '250px',
         data: {
+          header: 'Attention',
           content: 'Vous devez vous connecter pour pouvoir créer un nouveau chemin.',
           cancelPossible: false
         }
@@ -496,6 +512,7 @@ export class AppComponent implements OnInit {
       this.dialog.open(PopupDialogComponent, {
         width: '250px',
         data: {
+          header: 'Attention',
           content: 'Vous devez vous connecter pour pouvoir modifier un chemin.',
           cancelPossible: false
         }
