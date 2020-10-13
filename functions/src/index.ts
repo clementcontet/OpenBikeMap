@@ -10,7 +10,7 @@ const runtimeOpts = {
   timeoutSeconds: 300
 };
 
-export const initRandom = functions.runWith(runtimeOpts).https.onRequest(async (req, res) => {
+export const initRandom = functions.region('europe-west1').runWith(runtimeOpts).https.onRequest(async (req, res) => {
   // bellecour
   // admin.firestore().collection('items').add(
   //   {type: 'Feature', geometry: {type: 'Point', coordinates: [4.832, 45.758]}}
@@ -58,7 +58,7 @@ async function addLine(longStart: number, latStart: number, longEnd: number, lat
     );
 }
 
-export const updateOnNewHistory = functions.firestore.document('/history/{history}/entries/{entry}')
+export const updateOnNewHistory = functions.region('europe-west1').firestore.document('/history/{history}/entries/{entry}')
   .onCreate(async (doc) => {
     const itemId = (doc.ref.parent.parent as DocumentReference).id;
     const itemRef = admin.firestore().collection('items').doc(itemId);
@@ -148,10 +148,10 @@ function toRadians(value: number) {
   return value * Math.PI / 180;
 }
 
-export const updateOnNewRating = functions.firestore.document('/ratings/{rating}/entries/{entry}')
+export const updateOnNewRating = functions.region('europe-west1').firestore.document('/ratings/{rating}/entries/{entry}')
   .onCreate((query) => processRating(query));
 
-export const updateOnUpdatedRating = functions.firestore.document('/ratings/{rating}/entries/{entry}')
+export const updateOnUpdatedRating = functions.region('europe-west1').firestore.document('/ratings/{rating}/entries/{entry}')
   .onUpdate((change) => processRating(change.after));
 
 async function processRating(doc: FirebaseFirestore.QueryDocumentSnapshot) {
