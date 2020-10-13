@@ -378,7 +378,7 @@ export class AppComponent implements OnInit {
     return styles;
   }
 
-  private getRatingColor(rating: number): string {
+  getRatingColor(rating: number): string {
     if (rating <= 2) {
       return '#DC3C14';
     } else if (rating >= 4) {
