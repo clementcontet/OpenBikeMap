@@ -198,19 +198,13 @@ export class AppComponent implements OnInit {
     this.angularFirestore.collection('items').stateChanges()
       .subscribe(
         (items: DocumentChangeAction<any>[]) => {
-          this.removeFeatures(items.filter(item => item.payload.type === 'removed'));
+          this.removeFeatures(items);
 
-          const addedItems = items.filter(item => item.payload.type === 'added');
-          if (addedItems.length > 0) {
-            this.pathsCentersSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(addedItems, true)));
-            this.pathsDetailsSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(addedItems, false)));
-          }
-
-          const modifiedItems = items.filter(item => item.payload.type === 'modified');
-          if (modifiedItems.length > 0) {
-            this.removeFeatures(modifiedItems);
-            this.pathsCentersSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(modifiedItems, true)));
-            this.pathsDetailsSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(modifiedItems, false)));
+          const newItems = items.filter(item => item.payload.type === 'added' || item.payload.type === 'modified');
+          if (newItems.length > 0) {
+            this.removeFeatures(newItems);
+            this.pathsCentersSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(newItems, true)));
+            this.pathsDetailsSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(newItems, false)));
           }
 
           // These three layers sources don't change, but they style should change with the new distance
@@ -513,8 +507,8 @@ export class AppComponent implements OnInit {
     const feature = this.select.getFeatures().item(0);
     let itemId: string;
     if (this.interactionState === InteractionState.Creating) {
-      this.pathsDetailsSource.removeFeature(feature);
       itemId = this.angularFirestore.createId();
+      feature.setProperties({firestoreId: itemId});
     } else {
       itemId = feature.getProperties().firestoreId;
     }
@@ -535,9 +529,9 @@ export class AppComponent implements OnInit {
       const coordinatesMap = Object.assign({}, coordinates);
       const history = {
         creator: this.user.email,
-        created : firestore.Timestamp.now(),
+        created: firestore.Timestamp.now(),
         feature: {type: 'Feature', geometry: {type: 'LineString', coordinates: coordinatesMap}},
-    };
+      };
       return this.angularFirestore.collection('history').doc(itemId).collection('entries')
         .add(history);
     } else {
