@@ -431,7 +431,6 @@ export class AppComponent implements OnInit {
     this.modify.on('modifyend', (modifyEvent: ModifyEvent) => {
       this.geometryChanged = true;
       modifyEvent.features.forEach(feature => this.removeDuplicates(feature));
-      this.updateInteractions();
     });
 
     this.draw.on('drawend', (drawEvent: DrawEvent) => {
@@ -521,6 +520,24 @@ export class AppComponent implements OnInit {
   }
 
   validateEdition() {
+    if (
+      (this.interactionState === InteractionState.Creating
+        && (!this.securityRating || !this.nicenessRating))
+      ||
+      (this.interactionState === InteractionState.Modifying
+        && this.ratingChanged
+        && (!this.securityRating || !this.nicenessRating))) {
+      this.dialog.open(PopupDialogComponent, {
+        width: '250px',
+        data: {
+          header: 'Attention',
+          content: 'Vous devez noter la sécurité et la jolitude.',
+          cancelPossible: false
+        }
+      });
+      return;
+    }
+
     const feature = this.select.getFeatures().item(0);
     let itemId: string;
     if (this.interactionState === InteractionState.Creating) {
