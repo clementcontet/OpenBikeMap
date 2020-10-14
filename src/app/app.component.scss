@@ -4,8 +4,16 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
   width: 100%;
 }
 
-.mat-sidenav {
-  width: 20%;
+#mat-sidenav {
+  display: grid;
+}
+
+#start_modification,
+#cancel_modification,
+#cancel_creation,
+#validate_modification,
+#validate_creation {
+  margin: 16px;
 }
 
 .mat-card {

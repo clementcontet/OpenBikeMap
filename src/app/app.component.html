@@ -1,53 +1,53 @@
 <mat-sidenav-container>
   <mat-sidenav mode="side" position="end" [opened]="featureSelected()">
-    <div *ngIf="interactionState === InteractionState.Consulting">
-      <button
-        mat-flat-button color="primary" (click)="startModification()">Modifier
+    <div id="mat-sidenav">
+      <button id="start_modification"
+              *ngIf="interactionState === InteractionState.Consulting"
+              mat-flat-button color="primary" (click)="startModification()">Modifier
       </button>
-    </div>
-    <div *ngIf="interactionState === InteractionState.Modifying">
-      <button
-        mat-flat-button color="warn" (click)="cancelEdition()">Annuler
+      <button id="cancel_modification"
+              *ngIf="interactionState === InteractionState.Modifying"
+              mat-flat-button color="warn" (click)="cancelEdition()">Annuler
       </button>
-    </div>
-    <div *ngIf="interactionState === InteractionState.Creating">
-      <button
-        mat-flat-button color="warn" (click)="cancelEdition()">Annuler la création
+      <button id="cancel_creation"
+              *ngIf="interactionState === InteractionState.Creating"
+              mat-flat-button color="warn" (click)="cancelEdition()">Annuler la création
       </button>
-    </div>
 
-    <mat-card>
-      <p *ngIf="selectedPathDistance"> Distance : {{selectedPathDistance}}km</p>
-      <div *ngIf="interactionState === InteractionState.Consulting || interactionState === InteractionState.Modifying">
-        <p style='border-bottom: solid 5px {{getRatingColor(averageSecurityRating)}}'>
-          Sécurité : {{averageSecurityRating !== undefined ? averageSecurityRating + '/5' : '?'}}
-        </p>
-        <p style='border-bottom: dotted 10px {{getRatingColor(averageNicenessRating)}}'>
-          Jolitude : {{averageNicenessRating !== undefined ? averageNicenessRating + '/5' : '?'}}
-        </p>
-      </div>
-    </mat-card>
-    <mat-card *ngIf="interactionState === InteractionState.Modifying || interactionState === InteractionState.Creating">
-      <p>Mon avis :</p>
-      Piste sécurisée ?
-      <bar-rating
-        [(rate)]="securityRating"
-        max="5" (rateChange)="onChangeRating()"></bar-rating>
-      <br/>
-      Jolie balade ?
-      <bar-rating
-        [(rate)]="nicenessRating"
-        max="5" (rateChange)="onChangeRating()"></bar-rating>
-    </mat-card>
+      <mat-card>
+        <p *ngIf="selectedPathDistance"> Distance : {{selectedPathDistance}}km</p>
+        <div
+          *ngIf="interactionState === InteractionState.Consulting || interactionState === InteractionState.Modifying">
+          <p style='border-bottom: solid 5px {{getRatingColor(averageSecurityRating)}}'>
+            Sécurité : {{averageSecurityRating !== undefined ? averageSecurityRating + '/5' : '?'}}
+          </p>
+          <p style='border-bottom: dotted 10px {{getRatingColor(averageNicenessRating)}}'>
+            Jolitude : {{averageNicenessRating !== undefined ? averageNicenessRating + '/5' : '?'}}
+          </p>
+        </div>
+      </mat-card>
 
-    <div *ngIf="interactionState === InteractionState.Modifying">
-      <button
-        mat-flat-button color="accent" (click)="validateEdition()">Valider la modification
+      <mat-card
+        *ngIf="interactionState === InteractionState.Modifying || interactionState === InteractionState.Creating">
+        <p>Mon avis :</p>
+        Piste sécurisée ?
+        <bar-rating
+          [(rate)]="securityRating"
+          max="5" (rateChange)="onChangeRating()"></bar-rating>
+        <br/>
+        Jolie balade ?
+        <bar-rating
+          [(rate)]="nicenessRating"
+          max="5" (rateChange)="onChangeRating()"></bar-rating>
+      </mat-card>
+
+      <button id="validate_modification"
+              *ngIf="interactionState === InteractionState.Modifying"
+              mat-flat-button color="accent" (click)="validateEdition()">Valider
       </button>
-    </div>
-    <div *ngIf="interactionState === InteractionState.Creating">
-      <button
-        mat-flat-button color="accent" (click)="validateEdition()">Créer le chemin
+      <button id="validate_creation"
+              *ngIf="interactionState === InteractionState.Creating"
+              mat-flat-button color="accent" (click)="validateEdition()">Créer le chemin
       </button>
     </div>
   </mat-sidenav>
