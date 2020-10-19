@@ -20,23 +20,20 @@
           *ngIf="interactionState === InteractionState.Consulting || interactionState === InteractionState.Modifying">
           <p>
             Sécurité : {{averageSecurityRating !== undefined ? averageSecurityRating + '/5' : '?'}}
-            <br>
-            <svg height="20px" viewBox="0 0 100 20">
-              <line x1="10" x2="100" y1="10" y2="10" stroke="#ddd"
-                    stroke-width="10" stroke-linecap="round" stroke-dasharray="1, 15"/>
-              <line x1="0" x2="100" y1="10" y2="10" attr.stroke="{{getRatingColor(averageSecurityRating)}}"
+            <svg height="20px" viewBox="0 0 30 10">
+              <line x1="0" x2="30" y1="10" y2="10" attr.stroke="{{getRatingColor(averageSecurityRating)}}"
                     stroke-width="5" stroke-linecap="round"/>
-
             </svg>
           </p>
           <p>
             Jolitude : {{averageNicenessRating !== undefined ? averageNicenessRating + '/5' : '?'}}
-            <br>
-            <svg height="20px" viewBox="0 0 100 20">
-              <line x1="0" x2="100" y1="10" y2="10" stroke="#ddd" stroke-width="5" stroke-linecap="round"/>
-              <line x1="10" x2="100" y1="10" y2="10" attr.stroke="{{getRatingColor(averageNicenessRating)}}"
-                    stroke-width="10" stroke-linecap="round" stroke-dasharray="1, 15"/>
-            </svg>
+            <svg height="20px" viewBox="0 0 1000 1000">
+              <path
+                class="cls-1"
+                d="M674.96,75v0.053c-133.536,1.241-317.174,25.9-428.554,137.25C124.174,334.509,118,528.787,227.852,658.294c77.632-161.341,224.418-371.58,487.757-479.5C444.328,329.455,284.827,686.494,225.9,846.259,211.813,884.457,240.076,925,280.8,925h0a58.483,58.483,0,0,0,56.038-41.692c12.952-43.288,27.023-84.629,41.909-124.046,113.845,36.441,243.574,9.521,333.92-80.806C824.045,567.1,848.706,383.506,849.947,250H850V75H674.96Z"
+                id="path6"
+                style="fill:{{getRatingColor(averageNicenessRating)}};fill-opacity:1;stroke:#000000;stroke-opacity:1;stroke-width:60;stroke-miterlimit:4;stroke-dasharray:none;stroke-linejoin:round;stroke-linecap:round"/>
+             </svg>
           </p>
         </div>
       </mat-card>

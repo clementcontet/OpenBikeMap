@@ -29,9 +29,10 @@ import View from 'ol/View';
 import {OSM} from 'ol/source';
 import VectorSource from 'ol/source/Vector';
 import * as sphere from 'ol/sphere';
-import {Fill, Stroke, Style, Text} from 'ol/style';
+import {Fill, Icon, Stroke, Style, Text} from 'ol/style';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
+import {Coordinate} from 'ol/coordinate';
 
 enum InteractionState {
   Browsing,
@@ -320,7 +321,7 @@ export class AppComponent implements OnInit {
     const pathsLayer = new VectorLayer({
       source: this.pathsDetailsSource,
       minZoom: this.departmentThresholdZoom,
-      style: (feature: Feature, resolution: number) => this.getPathStyle(feature, resolution)
+      style: (feature: Feature) => this.getPathStyle(feature)
     });
 
     this.select = new Select({layers: [pathsLayer], toggleCondition: never});
@@ -358,24 +359,72 @@ export class AppComponent implements OnInit {
     });
   }
 
-  private getPathStyle(feature: Feature, resolution: number) {
+  private getPathStyle(feature: Feature) {
     const securityRating = feature.getProperties().security;
     const nicenessRating = feature.getProperties().niceness;
-    const pathWidth = Math.max(2, 10 / resolution);
+    const pathWidth = 4;
     const styles = [new Style({
       stroke: new Stroke({color: this.getRatingColor(securityRating), width: pathWidth})
     })];
     if (this.bikeMap.getView().getZoom() > this.nicenessInfoThresholdZoom) {
-      styles.push(new Style(
-        {
-          stroke: new Stroke({
-            color: this.getRatingColor(nicenessRating),
-            width: 2 * pathWidth,
-            lineDash: [0, 10 * pathWidth]
-          })
-        }));
+      this.splitLineString(feature.getGeometry() as LineString, 300).forEach(splitPoint => {
+        styles.push(new Style(
+          {
+            geometry: splitPoint,
+            image: new Icon({
+              src: 'assets/leaf.png',
+              scale: 0.15,
+              color: this.getRatingColor(nicenessRating)
+            })
+          }));
+      });
     }
     return styles;
+  }
+
+  // Adapted from https://gist.github.com/Kenny806/37c767f46bcb2687e0ae
+  private splitLineString(geometry: LineString, segmentLength: number) {
+    const splitPoints: Point[] = [];
+    const coords = geometry.getCoordinates();
+    let coordIndex = 0;
+    let startPoint = coords[coordIndex];
+    let nextPoint = coords[coordIndex + 1];
+    let currentSegmentLength = segmentLength / 2;
+
+    while (coordIndex < coords.length - 1) {
+      const distanceBetweenPoints = this.calculatePointsDistance(startPoint, nextPoint);
+      currentSegmentLength += distanceBetweenPoints;
+      if (currentSegmentLength < segmentLength) {
+        coordIndex++;
+        startPoint = coords[coordIndex];
+        nextPoint = coords[coordIndex + 1];
+        continue;
+      } else {
+        const distanceToSplitPoint = currentSegmentLength - segmentLength;
+        const splitPointCoords = this.calculateSplitPointCoords(startPoint, nextPoint, distanceBetweenPoints, distanceToSplitPoint);
+        const splitPoint = new Point(splitPointCoords);
+        splitPoints.push(splitPoint);
+        startPoint = splitPoint.getCoordinates();
+        currentSegmentLength = 0;
+      }
+    }
+
+    return splitPoints;
+  }
+
+
+  private calculateSplitPointCoords(startNode, nextNode, distanceBetweenNodes, distanceToSplitPoint) {
+    const d = distanceToSplitPoint / distanceBetweenNodes;
+    const x = nextNode[0] + (startNode[0] - nextNode[0]) * d;
+    const y = nextNode[1] + (startNode[1] - nextNode[1]) * d;
+    return [x, y];
+  }
+
+
+  private calculatePointsDistance(coord1: Coordinate, coord2: Coordinate): number {
+    const dx = coord1[0] - coord2[0];
+    const dy = coord1[1] - coord2[1];
+    return Math.sqrt(dx * dx + dy * dy);
   }
 
   getRatingColor(rating: number): string {
