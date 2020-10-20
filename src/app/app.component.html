@@ -15,41 +15,38 @@
       </button>
 
       <mat-card>
-        <p *ngIf="selectedPathDistance"> Distance : {{selectedPathDistance}}km</p>
-        <div
-          *ngIf="interactionState === InteractionState.Consulting || interactionState === InteractionState.Modifying">
-          <p>
-            Sécurité : {{averageSecurityRating !== undefined ? averageSecurityRating + '/5' : '?'}}
-            <svg height="20px" viewBox="0 0 30 10">
-              <line x1="0" x2="30" y1="10" y2="10" attr.stroke="{{getRatingColor(averageSecurityRating)}}"
-                    stroke-width="5" stroke-linecap="round"/>
-            </svg>
-          </p>
-          <p>
-            Jolitude : {{averageNicenessRating !== undefined ? averageNicenessRating + '/5' : '?'}}
-            <svg height="20px" viewBox="0 0 1000 1000">
-              <path
-                class="cls-1"
-                d="M674.96,75v0.053c-133.536,1.241-317.174,25.9-428.554,137.25C124.174,334.509,118,528.787,227.852,658.294c77.632-161.341,224.418-371.58,487.757-479.5C444.328,329.455,284.827,686.494,225.9,846.259,211.813,884.457,240.076,925,280.8,925h0a58.483,58.483,0,0,0,56.038-41.692c12.952-43.288,27.023-84.629,41.909-124.046,113.845,36.441,243.574,9.521,333.92-80.806C824.045,567.1,848.706,383.506,849.947,250H850V75H674.96Z"
-                id="path6"
-                style="fill:{{getRatingColor(averageNicenessRating)}};fill-opacity:1;stroke:#000000;stroke-opacity:1;stroke-width:60;stroke-miterlimit:4;stroke-dasharray:none;stroke-linejoin:round;stroke-linecap:round"/>
-             </svg>
-          </p>
-        </div>
+        Distance : {{selectedPathDistance}}km
       </mat-card>
 
+      <!-- Don't use *ngIf because otherwise the canvas elements
+      are not created fast enough to be accessible from controller -->
+      <div [hidden]="!existingFeatureSelected()">
+        <mat-card>
+          <p>Notes moyennes ({{ratings}}) :</p>
+          <div class="ratings">
+            Sécurité : {{averageSecurityRating !== undefined ? averageSecurityRating + '/5' : '?'}}
+            <canvas style="float: right" id="securityRatingCanvas" height="20px" width="20px"></canvas>
+            <br>
+            Jolitude : {{averageNicenessRating !== undefined ? averageNicenessRating + '/5' : '?'}}
+            <canvas style="float: right" id="nicenessRatingCanvas" height="20px" width="20px"></canvas>
+          </div>
+        </mat-card>
+      </div>
+
       <mat-card
-        *ngIf="interactionState === InteractionState.Modifying || interactionState === InteractionState.Creating">
+        *ngIf="featureModified()">
         <p>Mon avis :</p>
-        Piste sécurisée ?
-        <bar-rating
-          [(rate)]="securityRating"
-          max="5" (rateChange)="onChangeRating()"></bar-rating>
-        <br/>
-        Jolie balade ?
-        <bar-rating
-          [(rate)]="nicenessRating"
-          max="5" (rateChange)="onChangeRating()"></bar-rating>
+        <div class="ratings">
+          Piste sécurisée ?
+          <bar-rating
+            [(rate)]="securityRating"
+            max="5" (rateChange)="onChangeRating()"></bar-rating>
+          <br>
+          Jolie balade ?
+          <bar-rating
+            [(rate)]="nicenessRating"
+            max="5" (rateChange)="onChangeRating()"></bar-rating>
+        </div>
       </mat-card>
 
       <button id="validate_modification"

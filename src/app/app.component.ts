@@ -33,6 +33,7 @@ import {Fill, Icon, Stroke, Style, Text} from 'ol/style';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
 import {Coordinate} from 'ol/coordinate';
+import {toContext} from 'ol/render';
 
 enum InteractionState {
   Browsing,
@@ -72,6 +73,7 @@ export class AppComponent implements OnInit {
   private readonly angularFirestore: AngularFirestore;
   private readonly angularFireAuth: AngularFireAuth;
   user: User;
+  ratings: number;
   averageSecurityRating: number;
   averageNicenessRating: number;
   securityRating: number;
@@ -86,6 +88,16 @@ export class AppComponent implements OnInit {
   featureSelected() {
     return this.interactionState === InteractionState.Creating
       || this.interactionState === InteractionState.Consulting
+      || this.interactionState === InteractionState.Modifying;
+  }
+
+  featureModified() {
+    return this.interactionState === InteractionState.Creating
+      || this.interactionState === InteractionState.Modifying;
+  }
+
+  existingFeatureSelected() {
+    return this.interactionState === InteractionState.Consulting
       || this.interactionState === InteractionState.Modifying;
   }
 
@@ -229,8 +241,7 @@ export class AppComponent implements OnInit {
           this.departmentsLayer.changed();
 
           // If one removes an item that was selected, go back to Browsing
-          if ((this.interactionState === InteractionState.Consulting || this.interactionState === InteractionState.Modifying)
-            && this.select.getFeatures().getLength() === 0) {
+          if (this.existingFeatureSelected() && this.select.getFeatures().getLength() === 0) {
             this.interactionState = InteractionState.Browsing;
             this.updateInteractions();
           }
@@ -362,27 +373,50 @@ export class AppComponent implements OnInit {
   private getPathStyle(feature: Feature) {
     const securityRating = feature.getProperties().security;
     const nicenessRating = feature.getProperties().niceness;
-    const pathWidth = 4;
-    const styles = [new Style({
-      stroke: new Stroke({color: this.getRatingColor(securityRating), width: pathWidth})
-    })];
+    const styles = [
+      new Style({
+        stroke: new Stroke({color: '#fff', width: 6})
+      }),
+      this.getPathSecurityStyle(securityRating)
+    ];
     if (this.bikeMap.getView().getZoom() > this.nicenessInfoThresholdZoom) {
       this.splitLineString(feature.getGeometry() as LineString, 300).forEach(splitPoint => {
-        styles.push(new Style(
-          {
+        styles.push(
+          new Style({
             geometry: splitPoint,
             image: new Icon({
-              src: 'assets/leaf.png',
-              scale: 0.15,
-              color: this.getRatingColor(nicenessRating)
+              src: 'assets/leafBkg.png',
+              scale: 0.2
             })
-          }));
+          })
+        );
+        styles.push(
+          this.getPathNicenessStyle(splitPoint, nicenessRating)
+        );
       });
     }
     return styles;
   }
 
-  // Adapted from https://gist.github.com/Kenny806/37c767f46bcb2687e0ae
+  private getPathSecurityStyle(securityRating) {
+    return new Style({
+      stroke: new Stroke({color: this.getRatingColor(securityRating), width: 4})
+    });
+  }
+
+  private getPathNicenessStyle(point: Point, nicenessRating) {
+    return new Style(
+      {
+        geometry: point,
+        image: new Icon({
+          src: 'assets/leaf.png',
+          scale: 0.2,
+          color: this.getRatingColor(nicenessRating)
+        })
+      });
+  }
+
+// Adapted from https://gist.github.com/Kenny806/37c767f46bcb2687e0ae
   private splitLineString(geometry: LineString, segmentLength: number) {
     const splitPoints: Point[] = [];
     const coords = geometry.getCoordinates();
@@ -433,7 +467,7 @@ export class AppComponent implements OnInit {
     } else if (rating >= 4) {
       return '#32C832';
     } else {
-      return '#FFCC00';
+      return '#FFB400';
     }
   }
 
@@ -479,7 +513,9 @@ export class AppComponent implements OnInit {
     // Simplify lines that have duplicated points
     this.modify.on('modifyend', (modifyEvent: ModifyEvent) => {
       this.geometryChanged = true;
-      modifyEvent.features.forEach(feature => this.removeDuplicates(feature));
+      const feature = this.select.getFeatures().item(0);
+      this.removeDuplicates(feature);
+      this.updateDistance(feature);
     });
 
     this.draw.on('drawend', (drawEvent: DrawEvent) => {
@@ -496,7 +532,7 @@ export class AppComponent implements OnInit {
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        if (this.interactionState === InteractionState.Creating || this.interactionState === InteractionState.Modifying) {
+        if (this.featureModified()) {
           this.cancelEdition();
         } else if (this.interactionState === InteractionState.Drawing) {
           this.cancelDrawing();
@@ -527,6 +563,13 @@ export class AppComponent implements OnInit {
         (geometry as LineString).setCoordinates(newCoordinates);
       }
     }
+  }
+
+  private updateDistance(feature: Feature<Geometry>) {
+    const geometry = feature.getGeometry()
+      .clone()
+      .transform(this.osmProjection, this.gpsProjection);
+    this.selectedPathDistance = Math.round(this.computeDistance(geometry as LineString) / 100) / 10;
   }
 
   startDrawing() {
@@ -676,12 +719,24 @@ export class AppComponent implements OnInit {
 
     if (this.featureSelected()) {
       const feature = this.select.getFeatures().item(0);
-      const geometry = feature.getGeometry()
-        .clone()
-        .transform(this.osmProjection, this.gpsProjection);
-      this.selectedPathDistance = Math.round(this.computeDistance(geometry as LineString) / 100) / 10;
-      this.averageSecurityRating = feature.getProperties().security;
-      this.averageNicenessRating = feature.getProperties().niceness;
+      this.updateDistance(feature);
+
+      if (this.existingFeatureSelected()) {
+        this.ratings = feature.getProperties().ratings || 1;
+        this.averageSecurityRating = feature.getProperties().security;
+        this.averageNicenessRating = feature.getProperties().niceness;
+
+        const securityRatingCanvas = document.getElementById('securityRatingCanvas') as HTMLCanvasElement;
+        const securityRatingCanvasContext = toContext(securityRatingCanvas.getContext('2d'), {size: [20, 20]});
+        securityRatingCanvasContext.setStyle(this.getPathSecurityStyle(this.averageSecurityRating));
+        securityRatingCanvasContext.drawLineString(new LineString([[0, 10], [20, 10]]));
+
+        const nicenessRatingCanvas = document.getElementById('nicenessRatingCanvas') as HTMLCanvasElement;
+        const nicenessRatingCanvasContext = toContext(nicenessRatingCanvas.getContext('2d'), {size: [20, 20]});
+        const point = new Point([5, 15]);
+        nicenessRatingCanvasContext.setStyle(this.getPathNicenessStyle(point, this.averageNicenessRating));
+        nicenessRatingCanvasContext.drawPoint(point);
+      }
     } else {
       this.select.getFeatures().clear();
     }

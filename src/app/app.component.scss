@@ -6,6 +6,7 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
 
 #mat-sidenav {
   display: grid;
+  width: 200px;
 }
 
 #start_modification,
@@ -13,11 +14,15 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
 #cancel_creation,
 #validate_modification,
 #validate_creation {
-  margin: 16px;
+  margin: 8px;
 }
 
 .mat-card {
-  margin: 16px;
+  margin: 8px;
+}
+
+.ratings {
+  margin-left: 8px;
 }
 
 #bike_map {

@@ -46,6 +46,7 @@ async function addLine(longStart: number, latStart: number, longEnd: number, lat
     properties: {
       security: 1 + 4 * Math.round(10 * Math.random()) / 10,
       niceness: 1 + 4 * Math.round(10 * Math.random()) / 10,
+      ratings: 1,
       creator: 'initScript'
     },
   };
@@ -181,6 +182,7 @@ async function processRating(doc: FirebaseFirestore.QueryDocumentSnapshot) {
     if (currentItem !== undefined) {
       // If item exists, only update its ratings
       feature = currentItem;
+      feature.path.properties.ratings = ratingsRefs.length;
       feature.path.properties.security = averageSecurity;
       feature.path.properties.niceness = averageNiceness;
     } else {
@@ -189,7 +191,12 @@ async function processRating(doc: FirebaseFirestore.QueryDocumentSnapshot) {
       feature = {
         path:
           {
-            properties: {security: averageSecurity, niceness: averageNiceness, creator: doc.ref.id},
+            properties: {
+              ratings: ratingsRefs.length,
+              security: averageSecurity,
+              niceness: averageNiceness,
+              creator: doc.ref.id
+            },
             type: 'Feature'
           }
       };
