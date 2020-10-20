@@ -34,6 +34,7 @@ import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
 import {Coordinate} from 'ol/coordinate';
 import {toContext} from 'ol/render';
+import Stamen from 'ol/source/Stamen';
 
 enum InteractionState {
   Browsing,
@@ -63,6 +64,7 @@ export class AppComponent implements OnInit {
   private countryLayer: VectorLayer;
   private regionsLayer: VectorLayer;
   private departmentsLayer: VectorLayer;
+  private tileLayer: TileLayer;
   private readonly gpsProjection = 'EPSG:4326';
   private readonly osmProjection = 'EPSG:3857';
   private readonly countryThresholdZoom = 6;
@@ -116,6 +118,42 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
+    const rasterSwitch = document.getElementById('raster-style') as HTMLFormElement;
+    rasterSwitch.addEventListener('change', (e) => {
+      let source;
+      switch (rasterSwitch.value) {
+        case 'OSM':
+          source = new OSM();
+          break;
+        case 'OSMFR':
+          source = new OSM({url: 'http://a.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', crossOrigin: null});
+          break;
+        case 'OpenCycleMap':
+          source = new OSM({url: 'http://tile.thunderforest.com/cycle/{z}/{x}/{y}.png', crossOrigin: null});
+          break;
+        case 'CyclOSM':
+          source = new OSM({url: 'https://a.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png'});
+          break;
+        case 'Humanitarian':
+          source = new OSM({url: 'http://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', crossOrigin: null});
+          break;
+        case 'Terrain':
+          source = new Stamen({layer: 'terrain'});
+          break;
+        case 'Watercolor':
+          source = new Stamen({layer: 'watercolor'});
+          break;
+        case 'Voyager':
+          source = new OSM({url: 'http://{1-4}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'});
+          break;
+        case 'Positron':
+          source = new OSM({url: 'http://{1-4}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'});
+          break;
+
+      }
+      this.tileLayer.setSource(source);
+    });
+
     this.subscribeToFirestoreModifications();
     this.createMap();
     this.listenToEvents();
@@ -334,7 +372,7 @@ export class AppComponent implements OnInit {
       minZoom: this.departmentThresholdZoom,
       style: (feature: Feature) => this.getPathStyle(feature)
     });
-
+    this.tileLayer  = new TileLayer({source: new OSM()});
     this.select = new Select({layers: [pathsLayer], toggleCondition: never});
     this.modify = new Modify({features: this.select.getFeatures()});
     this.draw = new Draw({
@@ -348,7 +386,7 @@ export class AppComponent implements OnInit {
     this.bikeMap = new Map({
       target: 'bike_map',
       layers: [
-        new TileLayer({source: new OSM()}),
+        this.tileLayer,
         pathsLayer,
         heatLayer,
         this.departmentsLayer,
