@@ -81,22 +81,6 @@
         </button>
       </div>
 
-      <form style="position: absolute;top: 0.5em;  z-index: 1;">
-        <label>
-          <select id="raster-style" class="form-control">
-            <option value="OSM" default>OSM</option>
-            <option value="OSMFR" default>OSM France</option>
-            <option value="OpenCycleMap" default>OpenCycleMap</option>
-            <option value="CyclOSM">CyclOSM</option>
-            <option value="Humanitarian" default>Humanitarian</option>
-            <option value="Watercolor">Stamen Watercolor</option>
-            <option value="Terrain">Stamen Terrain</option>
-            <option value="Voyager">CartoDB Voyager</option>
-            <option value="Positron">CartoDB Positron</option>
-          </select>
-        </label>
-      </form>
-
       <button id="enable_draw"
               *ngIf="interactionState === InteractionState.Browsing"
               mat-flat-button
