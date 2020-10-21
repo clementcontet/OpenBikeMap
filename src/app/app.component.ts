@@ -330,16 +330,31 @@ export class AppComponent implements OnInit {
       gradient: ['#fff', '#09689c']
     });
 
-    const pathsLayer = new VectorLayer({
+    const pathsSecurityLayer = new VectorLayer({
       source: this.pathsDetailsSource,
       minZoom: this.departmentThresholdZoom,
-      style: (feature: Feature) => this.getPathStyle(feature)
+      style: (feature: Feature) => this.getPathSecurityStyle(feature)
     });
-    const tileLayer = new TileLayer({source:  new XYZ({
-        url: 'https://{a-d}.tile.jawg.io/jawg-terrain/{z}/{x}/{y}.png?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO',
-        attributions: '<a href="http://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank">&copy; JawgMaps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank">&copy; OSM contributors</a>',
-      })});
-    this.select = new Select({layers: [pathsLayer], toggleCondition: never});
+    const pathsNicenessLayer = new VectorLayer({
+      source: this.pathsDetailsSource,
+      minZoom: this.nicenessInfoThresholdZoom,
+      style: (feature: Feature) => this.getPathNicenessStyle(feature)
+    });
+    const tileLayer = new TileLayer({
+      source: new XYZ({
+        url: 'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png',
+        attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      })
+    });
+    const labelsLayer = new TileLayer({
+      source: new XYZ({
+        url: 'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png',
+        tilePixelRatio: 2,
+        attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      })
+    });
+
+    this.select = new Select({layers: [pathsSecurityLayer], toggleCondition: never});
     this.modify = new Modify({features: this.select.getFeatures()});
     this.draw = new Draw({
       source: this.pathsDetailsSource,
@@ -353,7 +368,9 @@ export class AppComponent implements OnInit {
       target: 'bike_map',
       layers: [
         tileLayer,
-        pathsLayer,
+        pathsSecurityLayer,
+        labelsLayer,
+        pathsNicenessLayer,
         heatLayer,
         this.departmentsLayer,
         this.regionsLayer,
@@ -374,41 +391,43 @@ export class AppComponent implements OnInit {
     });
   }
 
-  private getPathStyle(feature: Feature) {
+  private getPathSecurityStyle(feature: Feature) {
     const securityRating = feature.getProperties().security;
-    const nicenessRating = feature.getProperties().niceness;
-    const styles = [
+    return [
       new Style({
         stroke: new Stroke({color: '#fff', width: 6})
       }),
-      this.getPathSecurityStyle(securityRating)
+      this.getPathSecurityColorStyle(securityRating)
     ];
-    if (this.bikeMap.getView().getZoom() > this.nicenessInfoThresholdZoom) {
-      this.splitLineString(feature.getGeometry() as LineString, 300).forEach(splitPoint => {
-        styles.push(
-          new Style({
-            geometry: splitPoint,
-            image: new Icon({
-              src: 'assets/leafBkg.png',
-              scale: 0.2
-            })
+  }
+
+  private getPathNicenessStyle(feature: Feature) {
+    const nicenessRating = feature.getProperties().niceness;
+    const styles = [];
+    this.splitLineString(feature.getGeometry() as LineString, 300).forEach(splitPoint => {
+      styles.push(
+        new Style({
+          geometry: splitPoint,
+          image: new Icon({
+            src: 'assets/leafBkg.png',
+            scale: 0.2
           })
-        );
-        styles.push(
-          this.getPathNicenessStyle(splitPoint, nicenessRating)
-        );
-      });
-    }
+        })
+      );
+      styles.push(
+        this.getPathNicenessColorStyle(splitPoint, nicenessRating)
+      );
+    });
     return styles;
   }
 
-  private getPathSecurityStyle(securityRating) {
+  private getPathSecurityColorStyle(securityRating) {
     return new Style({
       stroke: new Stroke({color: this.getRatingColor(securityRating), width: 4})
     });
   }
 
-  private getPathNicenessStyle(point: Point, nicenessRating) {
+  private getPathNicenessColorStyle(point: Point, nicenessRating) {
     return new Style(
       {
         geometry: point,
@@ -731,14 +750,14 @@ export class AppComponent implements OnInit {
         this.averageNicenessRating = feature.getProperties().niceness;
 
         const securityRatingCanvas = document.getElementById('securityRatingCanvas') as HTMLCanvasElement;
-        const securityRatingCanvasContext = toContext(securityRatingCanvas.getContext('2d'), {size: [20, 20]});
-        securityRatingCanvasContext.setStyle(this.getPathSecurityStyle(this.averageSecurityRating));
+        const securityRatingCanvasContext = toContext(securityRatingCanvas.getContext('2d'), {size: [20, 15]});
+        securityRatingCanvasContext.setStyle(this.getPathSecurityColorStyle(this.averageSecurityRating));
         securityRatingCanvasContext.drawLineString(new LineString([[0, 10], [20, 10]]));
 
         const nicenessRatingCanvas = document.getElementById('nicenessRatingCanvas') as HTMLCanvasElement;
         const nicenessRatingCanvasContext = toContext(nicenessRatingCanvas.getContext('2d'), {size: [20, 20]});
-        const point = new Point([5, 15]);
-        nicenessRatingCanvasContext.setStyle(this.getPathNicenessStyle(point, this.averageNicenessRating));
+        const point = new Point([4, 20]);
+        nicenessRatingCanvasContext.setStyle(this.getPathNicenessColorStyle(point, this.averageNicenessRating));
         nicenessRatingCanvasContext.drawPoint(point);
       }
     } else {
