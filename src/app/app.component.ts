@@ -368,10 +368,10 @@ export class AppComponent implements OnInit {
       target: 'bike_map',
       layers: [
         tileLayer,
+        heatLayer,
         pathsSecurityLayer,
         labelsLayer,
         pathsNicenessLayer,
-        heatLayer,
         this.departmentsLayer,
         this.regionsLayer,
         this.countryLayer,
