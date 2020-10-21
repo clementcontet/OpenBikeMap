@@ -327,7 +327,7 @@ export class AppComponent implements OnInit {
       source: this.pathsCentersSource,
       maxZoom: this.departmentThresholdZoom,
       weight: feature => feature.getProperties().distance,
-      gradient: ['#fff', '#009688']
+      gradient: ['#fff', '#09689c']
     });
 
     const pathsLayer = new VectorLayer({
@@ -336,8 +336,7 @@ export class AppComponent implements OnInit {
       style: (feature: Feature) => this.getPathStyle(feature)
     });
     const tileLayer = new TileLayer({source:  new XYZ({
-        url: 'https://a.tile.jawg.io/jawg-terrain/{z}/{x}/{y}.png?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO',
-        crossOrigin: null,
+        url: 'https://{a-d}.tile.jawg.io/jawg-terrain/{z}/{x}/{y}.png?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO',
         attributions: '<a href="http://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank">&copy; JawgMaps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank">&copy; OSM contributors</a>',
       })});
     this.select = new Select({layers: [pathsLayer], toggleCondition: never});
