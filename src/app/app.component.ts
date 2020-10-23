@@ -7,7 +7,9 @@ import {DocumentChangeAction} from '@angular/fire/firestore/interfaces';
 import {MatDialog} from '@angular/material/dialog';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {User, firestore} from 'firebase';
+import * as mapboxgl from 'mapbox-gl';
 import {ScaleLine, defaults as defaultControls} from 'ol/control';
+import {Coordinate} from 'ol/coordinate';
 import {never, primaryAction} from 'ol/events/condition';
 import {getCenter} from 'ol/extent';
 import Feature from 'ol/Feature';
@@ -21,20 +23,21 @@ import {DrawEvent} from 'ol/interaction/Draw';
 import {ModifyEvent} from 'ol/interaction/Modify';
 import {SelectEvent} from 'ol/interaction/Select';
 import Heatmap from 'ol/layer/Heatmap';
+import Layer from 'ol/layer/Layer';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
 import * as olProj from 'ol/proj';
-import View from 'ol/View';
-import {OSM} from 'ol/source';
+import {toLonLat} from 'ol/proj';
+import {toContext} from 'ol/render';
 import VectorSource from 'ol/source/Vector';
+import VectorTile from 'ol/source/VectorTile';
+import XYZ from 'ol/source/XYZ';
 import * as sphere from 'ol/sphere';
 import {Fill, Icon, Stroke, Style, Text} from 'ol/style';
+import View from 'ol/View';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
-import {Coordinate} from 'ol/coordinate';
-import {toContext} from 'ol/render';
-import XYZ from 'ol/source/XYZ';
 
 enum InteractionState {
   Browsing,
@@ -61,9 +64,14 @@ export class AppComponent implements OnInit {
   private modify: Modify;
   private pathsDetailsSource = new VectorSource();
   private pathsCentersSource = new VectorSource();
-  private countryLayer: VectorLayer;
-  private regionsLayer: VectorLayer;
-  private departmentsLayer: VectorLayer;
+  private countryLayer: Layer;
+  private regionsLayer: Layer;
+  private departmentsLayer: Layer;
+  private backgroundLayer: Layer;
+  private heatLayer: Layer;
+  private pathsSecurityLayer: Layer;
+  private labelsLayer: Layer;
+  private pathsNicenessLayer: Layer;
   private readonly gpsProjection = 'EPSG:4326';
   private readonly osmProjection = 'EPSG:3857';
   private readonly countryThresholdZoom = 6;
@@ -117,6 +125,20 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
+    const rasterSwitch = document.getElementById('map-style') as HTMLFormElement;
+    rasterSwitch.addEventListener('change', (e) => {
+      this.removeLayers();
+      switch (rasterSwitch.value) {
+        case 'Raster':
+          this.setRasterMap();
+          break;
+        case 'Vector':
+          this.setVectorMap();
+          break;
+      }
+      this.addLayers();
+    });
+
     this.subscribeToFirestoreModifications();
     this.createMap();
     this.listenToEvents();
@@ -323,38 +345,25 @@ export class AppComponent implements OnInit {
       style: (feature: Feature) => this.getAreaStyle(feature, false),
     });
 
-    const heatLayer = new Heatmap({
+    this.heatLayer = new Heatmap({
       source: this.pathsCentersSource,
       maxZoom: this.departmentThresholdZoom,
       weight: feature => feature.getProperties().distance,
       gradient: ['#fff', '#09689c']
     });
 
-    const pathsSecurityLayer = new VectorLayer({
+    this.pathsSecurityLayer = new VectorLayer({
       source: this.pathsDetailsSource,
       minZoom: this.departmentThresholdZoom,
       style: (feature: Feature) => this.getPathSecurityStyle(feature)
     });
-    const pathsNicenessLayer = new VectorLayer({
+    this.pathsNicenessLayer = new VectorLayer({
       source: this.pathsDetailsSource,
       minZoom: this.nicenessInfoThresholdZoom,
       style: (feature: Feature) => this.getPathNicenessStyle(feature)
     });
-    const tileLayer = new TileLayer({
-      source: new XYZ({
-        url: 'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png',
-        attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      })
-    });
-    const labelsLayer = new TileLayer({
-      source: new XYZ({
-        url: 'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png',
-        tilePixelRatio: 2,
-        attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      })
-    });
 
-    this.select = new Select({layers: [pathsSecurityLayer], toggleCondition: never});
+    this.select = new Select({layers: [this.pathsSecurityLayer], toggleCondition: never});
     this.modify = new Modify({features: this.select.getFeatures()});
     this.draw = new Draw({
       source: this.pathsDetailsSource,
@@ -366,16 +375,6 @@ export class AppComponent implements OnInit {
 
     this.bikeMap = new Map({
       target: 'bike_map',
-      layers: [
-        tileLayer,
-        heatLayer,
-        pathsSecurityLayer,
-        labelsLayer,
-        pathsNicenessLayer,
-        this.departmentsLayer,
-        this.regionsLayer,
-        this.countryLayer,
-      ],
       interactions: defaultInteractions({pinchRotate: false}).extend([
         this.select,
         this.modify,
@@ -389,6 +388,112 @@ export class AppComponent implements OnInit {
       controls: defaultControls({attributionOptions: {collapsible: true}})
         .extend([new ScaleLine()])
     });
+
+    this.setRasterMap();
+    this.addLayers();
+  }
+
+  private setRasterMap() {
+    this.backgroundLayer = new TileLayer({
+      source: new XYZ({
+        url: 'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png',
+        tilePixelRatio: 2,
+        attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      })
+    });
+    this.labelsLayer = new TileLayer({
+      source: new XYZ({
+        url: 'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png',
+        tilePixelRatio: 2,
+        attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      })
+    });
+  }
+
+  private setVectorMap() {
+    this.backgroundLayer = this.getMapboxStyleLayer('assets/jawg-terrain-nolabels.json');
+    this.labelsLayer = this.getMapboxStyleLayer('assets/jawg-terrain-onlylabels.json');
+  }
+
+  private removeLayers() {
+    for (const layer of this.getStackedLayers()) {
+      this.bikeMap.removeLayer(layer);
+    }
+  }
+
+  private addLayers() {
+    for (const layer of this.getStackedLayers()) {
+      this.bikeMap.addLayer(layer);
+    }
+  }
+
+  private getStackedLayers(): Layer[] {
+    return [
+      this.backgroundLayer,
+      this.heatLayer,
+      this.pathsSecurityLayer,
+      this.labelsLayer,
+      this.pathsNicenessLayer,
+      this.departmentsLayer,
+      this.regionsLayer,
+      this.countryLayer
+    ];
+  }
+
+  // From https://openlayers.org/en/latest/examples/mapbox-layer.html
+  // Doesn't work anymore with mapbox-gl starting 1.9
+  private getMapboxStyleLayer(styleUrl: string): Layer {
+    const mbMap = new mapboxgl.Map({
+      style: styleUrl,
+      attributionControl: false,
+      boxZoom: false,
+      container: 'bike_map',
+      doubleClickZoom: false,
+      dragPan: false,
+      dragRotate: false,
+      interactive: false,
+      keyboard: false,
+      pitchWithRotate: false,
+      scrollZoom: false,
+      touchZoomRotate: false,
+    });
+
+    const mbLayer = new Layer({
+      render: (frameState) => {
+        const canvas = mbMap.getCanvas();
+        const viewState = frameState.viewState;
+
+        const visible = mbLayer.getVisible();
+        canvas.style.display = visible ? 'block' : 'none';
+
+        const opacity = mbLayer.getOpacity();
+        canvas.style.opacity = opacity;
+
+        // adjust view parameters in mapbox
+        const rotation = viewState.rotation;
+        mbMap.jumpTo({
+          center: toLonLat(viewState.center),
+          zoom: viewState.zoom - 1,
+          bearing: (-rotation * 180) / Math.PI,
+          animate: false,
+        });
+
+        // cancel the scheduled update & trigger synchronous redraw
+        // see https://github.com/mapbox/mapbox-gl-js/issues/7893#issue-408992184
+        // NOTE: THIS MIGHT BREAK IF UPDATING THE MAPBOX VERSION
+        if (mbMap._frame) {
+          mbMap._frame.cancel();
+          mbMap._frame = null;
+        }
+        mbMap._render();
+
+        return canvas;
+      },
+      source: new VectorTile({
+        attributions: '<a href="http://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; JawgMaps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>'
+      }),
+    });
+    return mbLayer;
   }
 
   private getPathSecurityStyle(feature: Feature) {
@@ -469,14 +574,12 @@ export class AppComponent implements OnInit {
     return splitPoints;
   }
 
-
   private calculateSplitPointCoords(startNode, nextNode, distanceBetweenNodes, distanceToSplitPoint) {
     const d = distanceToSplitPoint / distanceBetweenNodes;
     const x = nextNode[0] + (startNode[0] - nextNode[0]) * d;
     const y = nextNode[1] + (startNode[1] - nextNode[1]) * d;
     return [x, y];
   }
-
 
   private calculatePointsDistance(coord1: Coordinate, coord2: Coordinate): number {
     const dx = coord1[0] - coord2[0];

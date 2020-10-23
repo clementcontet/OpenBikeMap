@@ -1,0 +1,1819 @@
+{
+  "version": 8,
+  "glyphs": "https://api.jawg.io/glyphs/{fontstack}/{range}.pbf",
+  "sprite": "https://api.jawg.io/sprites/maki-colorful+network",
+  "sources": {
+    "streets-v2+landcover-v1+hillshade-v1+contour-v1": {
+      "type": "vector",
+      "attribution": "<a href='http://jawg.io' title='Tiles Courtesy of Jawg Maps' target='_blank' class='jawg-attrib'>&copy; <b>Jawg</b>Maps</a> | <a href='https://www.openstreetmap.org/copyright' title='OpenStreetMap is open data licensed under ODbL' target='_blank' class='osm-attrib'>&copy; OSM contributors</a>",
+      "mapbox_logo": false,
+      "maxzoom": 16,
+      "tiles": [
+        "https://a.tile.jawg.io/streets-v2+landcover-v1+hillshade-v1+contour-v1/{z}/{x}/{y}.pbf?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO",
+        "https://b.tile.jawg.io/streets-v2+landcover-v1+hillshade-v1+contour-v1/{z}/{x}/{y}.pbf?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO",
+        "https://c.tile.jawg.io/streets-v2+landcover-v1+hillshade-v1+contour-v1/{z}/{x}/{y}.pbf?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO"
+      ]
+    }
+  },
+  "metadata": {
+    "taxonomy:title": "Jawg Terrain",
+    "taxonomy:groups": [
+      {
+        "id": "admin-boundaries",
+        "type": "line",
+        "title": "Administrative boundaries"
+      },
+      {
+        "id": "roads",
+        "type": "line",
+        "title": "Roads"
+      },
+      {
+        "id": "railways",
+        "type": "line",
+        "title": "Railways"
+      },
+      {
+        "id": "waterway",
+        "type": "line",
+        "title": "Waterways"
+      },
+      {
+        "id": "aeroway",
+        "type": "line",
+        "title": "Aeroways"
+      },
+      {
+        "id": "landuse",
+        "type": "polygon",
+        "title": "Land use",
+        "zooms": 13
+      },
+      {
+        "id": "landcover",
+        "type": "polygon",
+        "title": "Water & Landcover",
+        "zooms": 13
+      },
+      {
+        "id": "building",
+        "type": "polygon",
+        "title": "Buildings",
+        "zooms": 20
+      },
+      {
+        "id": "waterway-labels",
+        "type": "symbol",
+        "title": "Water Labels"
+      },
+      {
+        "id": "places",
+        "type": "symbol",
+        "title": "Political & Place Labels",
+        "zooms": [
+          2,
+          4,
+          6,
+          8,
+          10,
+          12,
+          14,
+          16
+        ]
+      },
+      {
+        "type": "annotation",
+        "content": "<div style='font-size: 12px; text-align: center;'>Style created by <a href='https://www.jawg.io/lab'>Jawg <span style='color: #2999fd;'>Lab</span></a></div>"
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "contour-label",
+      "type": "symbol",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "contour",
+      "minzoom": 9,
+      "filter": [
+        "in",
+        "index",
+        10,
+        5
+      ],
+      "layout": {
+        "text-field": "{elevation} m",
+        "symbol-placement": "line",
+        "text-pitch-alignment": "viewport",
+        "text-max-angle": 45,
+        "text-padding": 5,
+        "text-font": [
+          "Roboto Bold",
+          "Noto Bold"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          9.5,
+          20,
+          12
+        ]
+      },
+      "paint": {
+        "text-color": "#267300",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 0,
+        "text-halo-color": "#ffffff"
+      }
+    },
+    {
+      "id": "housenum-label",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "housenum_label",
+      "type": "symbol",
+      "minzoom": 17,
+      "layout": {
+        "text-field": "{house_num}",
+        "text-font": [
+          "Roboto Italic",
+          "Noto Regular"
+        ],
+        "text-pitch-alignment": "viewport",
+        "text-max-width": 10,
+        "text-size": 10
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-opacity": 0.3
+      }
+    },
+    {
+      "id": "waterway-label",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "waterway",
+      "type": "symbol",
+      "metadata": {
+        "taxonomy:group": "waterway-labels",
+        "taxonomy:example": "La Seine"
+      },
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Italic",
+          "Noto Regular"
+        ],
+        "symbol-placement": "line",
+        "text-pitch-alignment": "viewport",
+        "text-letter-spacing": 0.25,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          10,
+          18,
+          14
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0
+      }
+    },
+    {
+      "id": "waterarea-label",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "natural_label",
+      "type": "symbol",
+      "metadata": {
+        "taxonomy:group": "waterway-labels",
+        "taxonomy:example": "Lake Leman"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "Point"
+        ],
+        [
+          "in",
+          "class",
+          "water",
+          "reservoir"
+        ]
+      ],
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Italic",
+          "Noto Regular"
+        ],
+        "text-letter-spacing": 0.25,
+        "text-pitch-alignment": "viewport",
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          10,
+          18,
+          14
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0
+      }
+    },
+    {
+      "id": "road-label-small",
+      "type": "symbol",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "road",
+      "minzoom": 15,
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "LineString"
+        ],
+        [
+          "!in",
+          "class",
+          "motorway",
+          "main",
+          "street",
+          "street_limited",
+          "major_rail",
+          "minor_rail"
+        ]
+      ],
+      "layout": {
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          15,
+          10,
+          20,
+          13
+        ],
+        "text-max-angle": 30,
+        "symbol-spacing": 250,
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "symbol-placement": "line",
+        "text-padding": 1,
+        "text-rotation-alignment": "map",
+        "text-pitch-alignment": "viewport",
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-letter-spacing": 0.01
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "road-label-medium",
+      "type": "symbol",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "road",
+      "minzoom": 11,
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "LineString"
+        ],
+        [
+          "in",
+          "class",
+          "street",
+          "street_limited"
+        ]
+      ],
+      "layout": {
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          10,
+          20,
+          14
+        ],
+        "text-max-angle": 30,
+        "symbol-spacing": 250,
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "symbol-placement": "line",
+        "text-padding": 1,
+        "text-rotation-alignment": "map",
+        "text-pitch-alignment": "viewport",
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-letter-spacing": 0.01
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "road-label-large",
+      "type": "symbol",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "road",
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "LineString"
+        ],
+        [
+          "in",
+          "class",
+          "motorway",
+          "main"
+        ]
+      ],
+      "layout": {
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9,
+          10,
+          20,
+          16
+        ],
+        "text-max-angle": 30,
+        "symbol-spacing": 250,
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "symbol-placement": "line",
+        "text-padding": 1,
+        "text-rotation-alignment": "map",
+        "text-pitch-alignment": "viewport",
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-letter-spacing": 0.01
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "public-transport-label",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "transit_label",
+      "type": "symbol",
+      "filter": [
+        "all",
+        [
+          "any",
+          [
+            "!has",
+            "zoomrank"
+          ],
+          [
+            "<=",
+            "zoomrank",
+            2
+          ]
+        ],
+        [
+          "!has",
+          "network"
+        ]
+      ],
+      "layout": {
+        "icon-image": "{maki}-11",
+        "icon-padding": 10,
+        "text-padding": 1,
+        "text-offset": [
+          0,
+          0.75
+        ],
+        "text-rotation-alignment": "viewport",
+        "text-anchor": "top",
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          17,
+          [
+            "coalesce",
+            [
+              "get",
+              "name_fr"
+            ],
+            [
+              "get",
+              "name_ltn"
+            ],
+            [
+              "get",
+              "name"
+            ]
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-max-width": 8,
+        "text-size": 10
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "networks",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "transit_label",
+      "type": "symbol",
+      "filter": [
+        "all",
+        [
+          "any",
+          [
+            "!has",
+            "zoomrank"
+          ],
+          [
+            "<=",
+            "zoomrank",
+            2
+          ]
+        ],
+        [
+          "has",
+          "network"
+        ]
+      ],
+      "minzoom": 13,
+      "layout": {
+        "icon-image": "{network}-18",
+        "icon-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          0.6,
+          16,
+          0.9
+        ],
+        "icon-padding": 10,
+        "text-padding": 1,
+        "text-offset": [
+          0,
+          1
+        ],
+        "text-rotation-alignment": "viewport",
+        "text-anchor": "top",
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          14,
+          [
+            "coalesce",
+            [
+              "get",
+              "name_fr"
+            ],
+            [
+              "get",
+              "name_ltn"
+            ],
+            [
+              "get",
+              "name"
+            ]
+          ]
+        ],
+        "text-font": [
+          "Open Sans Regular",
+          "Noto Regular"
+        ],
+        "text-max-width": 8,
+        "text-size": 10
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "poi-label",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "poi_label",
+      "type": "symbol",
+      "filter": [
+        "any",
+        [
+          "!has",
+          "zoomrank"
+        ],
+        [
+          "<=",
+          "zoomrank",
+          2
+        ]
+      ],
+      "layout": {
+        "icon-image": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "concat",
+            [
+              "get",
+              "maki"
+            ],
+            "-11"
+          ],
+          15,
+          [
+            "concat",
+            [
+              "get",
+              "maki"
+            ],
+            "-15"
+          ]
+        ],
+        "text-padding": 1,
+        "text-offset": [
+          0,
+          0.75
+        ],
+        "text-rotation-alignment": "viewport",
+        "text-anchor": "top",
+        "text-size": 10,
+        "text-max-width": 8,
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "mountain_peak",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "natural_label",
+      "type": "symbol",
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "Point"
+        ],
+        [
+          "==",
+          "class",
+          "landmark"
+        ]
+      ],
+      "layout": {
+        "icon-image": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "concat",
+            [
+              "get",
+              "maki"
+            ],
+            "-11"
+          ],
+          15,
+          [
+            "concat",
+            [
+              "get",
+              "maki"
+            ],
+            "-15"
+          ]
+        ],
+        "text-padding": 15,
+        "text-offset": [
+          0,
+          0.75
+        ],
+        "text-rotation-alignment": "viewport",
+        "text-anchor": "top",
+        "text-size": 10,
+        "text-max-width": 8,
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "marine-label-point",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "natural_label",
+      "metadata": {
+        "taxonomy:group": "water-label",
+        "taxonomy:example": "Atlantic Ocean"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "Point"
+        ],
+        [
+          "in",
+          "class",
+          "ocean",
+          "sea"
+        ]
+      ],
+      "type": "symbol",
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-max-width": 6,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          1,
+          18,
+          6,
+          [
+            "case",
+            [
+              "==",
+              [
+                "get",
+                "scalerank"
+              ],
+              0
+            ],
+            28,
+            [
+              ">=",
+              [
+                "get",
+                "scalerank"
+              ],
+              5
+            ],
+            18,
+            24
+          ]
+        ]
+      },
+      "paint": {
+        "text-color": "#d7effb"
+      }
+    },
+    {
+      "id": "marine-label-line",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "natural_label",
+      "metadata": {
+        "taxonomy:group": "water-label",
+        "taxonomy:example": "Caribbean Sea"
+      },
+      "type": "symbol",
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "LineString"
+        ],
+        [
+          "in",
+          "class",
+          "ocean",
+          "sea"
+        ]
+      ],
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-max-width": 6,
+        "symbol-placement": "line-center",
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          1,
+          18,
+          6,
+          24
+        ]
+      },
+      "paint": {
+        "text-color": "#d7effb"
+      }
+    },
+    {
+      "id": "place-suburbs",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "Chelsea"
+      },
+      "filter": [
+        "in",
+        "type",
+        "suburb",
+        "neighbourhood"
+      ],
+      "minzoom": 10,
+      "maxzoom": 16,
+      "type": "symbol",
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-transform": "uppercase",
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-letter-spacing": 0.15,
+        "text-padding": 3,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          9,
+          15,
+          16
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "place-village",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "Hinschefelde"
+      },
+      "filter": [
+        "in",
+        "type",
+        "village",
+        "hamlet"
+      ],
+      "maxzoom": 15,
+      "type": "symbol",
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-padding": 1,
+        "text-max-width": 7,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          11,
+          16,
+          18
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1
+      }
+    },
+    {
+      "id": "place-town",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "Bagneux"
+      },
+      "filter": [
+        "==",
+        "type",
+        "town"
+      ],
+      "maxzoom": 15,
+      "type": "symbol",
+      "layout": {
+        "icon-image": "circle-11",
+        "icon-size": 0.4,
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-padding": 1,
+        "text-max-width": 7,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          7,
+          11,
+          15,
+          20
+        ],
+        "text-offset": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "literal",
+            [
+              0,
+              -0.2
+            ]
+          ],
+          8,
+          [
+            "literal",
+            [
+              0,
+              0
+            ]
+          ]
+        ],
+        "text-anchor": [
+          "step",
+          [
+            "zoom"
+          ],
+          "bottom",
+          8,
+          "center"
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1,
+        "icon-opacity": [
+          "step",
+          [
+            "zoom"
+          ],
+          1,
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "place-city-sm",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "Cardiff"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "type",
+          "city"
+        ],
+        [
+          ">",
+          "scalerank",
+          2
+        ],
+        [
+          "!=",
+          "capital",
+          2
+        ]
+      ],
+      "maxzoom": 14,
+      "type": "symbol",
+      "layout": {
+        "icon-image": "circle-11",
+        "icon-size": 0.4,
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-offset": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "literal",
+            [
+              0,
+              -0.2
+            ]
+          ],
+          8,
+          [
+            "literal",
+            [
+              0,
+              0
+            ]
+          ]
+        ],
+        "text-anchor": [
+          "step",
+          [
+            "zoom"
+          ],
+          "bottom",
+          8,
+          "center"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          12,
+          14,
+          22
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1,
+        "icon-opacity": [
+          "step",
+          [
+            "zoom"
+          ],
+          1,
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "place-city-lg",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "New York"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "type",
+          "city"
+        ],
+        [
+          "<=",
+          "scalerank",
+          2
+        ],
+        [
+          "!=",
+          "capital",
+          2
+        ]
+      ],
+      "maxzoom": 14,
+      "type": "symbol",
+      "layout": {
+        "icon-image": "circle-11",
+        "icon-size": 0.5,
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          4,
+          12,
+          10,
+          22
+        ],
+        "text-offset": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "literal",
+            [
+              0,
+              -0.2
+            ]
+          ],
+          8,
+          [
+            "literal",
+            [
+              0,
+              0
+            ]
+          ]
+        ],
+        "text-anchor": [
+          "step",
+          [
+            "zoom"
+          ],
+          "bottom",
+          8,
+          "center"
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1,
+        "icon-opacity": [
+          "step",
+          [
+            "zoom"
+          ],
+          1,
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "state-label-md",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "states",
+        "taxonomy:example": "La Réunion"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "state"
+        ],
+        [
+          "==",
+          "scalerank",
+          3
+        ]
+      ],
+      "maxzoom": 10,
+      "type": "symbol",
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-padding": 5,
+        "text-max-width": 6,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          5,
+          10,
+          8,
+          18
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0
+      }
+    },
+    {
+      "id": "state-label-lg",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "states",
+        "taxonomy:example": "Colorado"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "state"
+        ],
+        [
+          ">=",
+          "scalerank",
+          1
+        ],
+        [
+          "<=",
+          "scalerank",
+          2
+        ]
+      ],
+      "maxzoom": 10,
+      "type": "symbol",
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular",
+          "Noto Regular"
+        ],
+        "text-transform": "uppercase",
+        "text-padding": 5,
+        "text-max-width": 6,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          3,
+          8,
+          8,
+          24
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0
+      }
+    },
+    {
+      "id": "place-capital",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "Paris"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "locality"
+        ],
+        [
+          "==",
+          "type",
+          "city"
+        ],
+        [
+          "==",
+          "capital",
+          2
+        ]
+      ],
+      "maxzoom": 14,
+      "type": "symbol",
+      "layout": {
+        "icon-image": "circle-11",
+        "icon-size": 0.6,
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Bold",
+          "Noto Bold"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          4,
+          12,
+          10,
+          22
+        ],
+        "text-offset": [
+          "step",
+          [
+            "zoom"
+          ],
+          [
+            "literal",
+            [
+              0,
+              0.15
+            ]
+          ],
+          8,
+          [
+            "literal",
+            [
+              0,
+              0
+            ]
+          ]
+        ],
+        "text-anchor": [
+          "step",
+          [
+            "zoom"
+          ],
+          "top",
+          8,
+          "center"
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0,
+        "text-halo-blur": 1,
+        "icon-opacity": [
+          "step",
+          [
+            "zoom"
+          ],
+          1,
+          8,
+          0
+        ]
+      }
+    },
+    {
+      "id": "country-label-sm",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "Luxembourg"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "country"
+        ],
+        [
+          ">=",
+          "scalerank",
+          5
+        ]
+      ],
+      "maxzoom": 7,
+      "type": "symbol",
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Bold",
+          "Noto Bold"
+        ],
+        "text-max-width": 6,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          5,
+          10,
+          8,
+          18
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0
+      }
+    },
+    {
+      "id": "country-label-md",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "Switzerland"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "country"
+        ],
+        [
+          ">=",
+          "scalerank",
+          3
+        ],
+        [
+          "<=",
+          "scalerank",
+          4
+        ]
+      ],
+      "maxzoom": 7,
+      "type": "symbol",
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Bold",
+          "Noto Bold"
+        ],
+        "text-max-width": 6,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          3,
+          10,
+          8,
+          24
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0
+      }
+    },
+    {
+      "id": "country-label-lg",
+      "source": "streets-v2+landcover-v1+hillshade-v1+contour-v1",
+      "source-layer": "place_label",
+      "metadata": {
+        "taxonomy:group": "places",
+        "taxonomy:example": "France"
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "country"
+        ],
+        [
+          "<=",
+          "scalerank",
+          2
+        ]
+      ],
+      "maxzoom": 7,
+      "type": "symbol",
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_fr"
+          ],
+          [
+            "get",
+            "name_ltn"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Bold",
+          "Noto Bold"
+        ],
+        "text-max-width": 6,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          1,
+          10,
+          6,
+          24
+        ]
+      },
+      "paint": {
+        "text-color": "#110801",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.0
+      }
+    }
+  ]
+}

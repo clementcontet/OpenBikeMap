@@ -2,6 +2,7 @@
 html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
   height: 100%;
   width: 100%;
+  overflow: hidden; /* Hide scrollbars */
 }
 
 #mat-sidenav {

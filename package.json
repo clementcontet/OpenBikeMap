@@ -23,6 +23,7 @@
     "@angular/platform-browser-dynamic": "~9.1.11",
     "@angular/router": "~9.1.11",
     "firebase": "^7.21.1",
+    "mapbox-gl": "1.8.1",
     "ngx-bar-rating": "^2.0.0",
     "ol": "^6.4.3",
     "rxjs": "~6.5.4",
