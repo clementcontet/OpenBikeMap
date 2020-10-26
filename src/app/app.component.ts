@@ -8,8 +8,6 @@ import {MatDialog} from '@angular/material/dialog';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {User, firestore} from 'firebase';
 import * as mapboxgl from 'mapbox-gl';
-import stylefunction from 'ol-mapbox-style/dist/stylefunction';
-import olms from 'ol-mapbox-style';
 import {ScaleLine, defaults as defaultControls} from 'ol/control';
 import {Coordinate} from 'ol/coordinate';
 import {never, primaryAction} from 'ol/events/condition';
@@ -26,7 +24,6 @@ import {ModifyEvent} from 'ol/interaction/Modify';
 import {SelectEvent} from 'ol/interaction/Select';
 import Heatmap from 'ol/layer/Heatmap';
 import Layer from 'ol/layer/Layer';
-import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
 import * as olProj from 'ol/proj';
@@ -34,14 +31,11 @@ import {toLonLat} from 'ol/proj';
 import {toContext} from 'ol/render';
 import VectorSource from 'ol/source/Vector';
 import VectorTile from 'ol/source/VectorTile';
-import XYZ from 'ol/source/XYZ';
 import * as sphere from 'ol/sphere';
 import {Fill, Icon, Stroke, Style, Text} from 'ol/style';
 import View from 'ol/View';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
-import VectorTileLayer from 'ol/layer/VectorTile';
-import MVT from 'ol/format/MVT';
 
 enum InteractionState {
   Browsing,
@@ -71,11 +65,6 @@ export class AppComponent implements OnInit {
   private countryLayer: Layer;
   private regionsLayer: Layer;
   private departmentsLayer: Layer;
-  private backgroundLayer: Layer;
-  private heatLayer: Layer;
-  private pathsSecurityLayer: Layer;
-  private labelsLayer: Layer;
-  private pathsNicenessLayer: Layer;
   private readonly gpsProjection = 'EPSG:4326';
   private readonly osmProjection = 'EPSG:3857';
   private readonly countryThresholdZoom = 6;
@@ -129,25 +118,6 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
-    const rasterSwitch = document.getElementById('map-style') as HTMLFormElement;
-    rasterSwitch.addEventListener('change', (e) => {
-      this.removeLayers();
-      switch (rasterSwitch.value) {
-        case 'raster':
-          this.setRasterMap();
-          break;
-        case 'mapbox-gl':
-          this.setMapboxGl();
-          break;
-        case 'ol-mapbox-function-style':
-          this.setMapboxFunctionStyle();
-          break;
-        case 'ol-mapbox-apply-style':
-          this.setMapboxApplyStyle();
-          break;
-      }
-    });
-
     this.subscribeToFirestoreModifications();
     this.createMap();
     this.listenToEvents();
@@ -354,25 +324,28 @@ export class AppComponent implements OnInit {
       style: (feature: Feature) => this.getAreaStyle(feature, false),
     });
 
-    this.heatLayer = new Heatmap({
+    const heatLayer = new Heatmap({
       source: this.pathsCentersSource,
       maxZoom: this.departmentThresholdZoom,
       weight: feature => feature.getProperties().distance,
       gradient: ['#fff', '#09689c']
     });
 
-    this.pathsSecurityLayer = new VectorLayer({
+    const pathsSecurityLayer = new VectorLayer({
       source: this.pathsDetailsSource,
       minZoom: this.departmentThresholdZoom,
       style: (feature: Feature) => this.getPathSecurityStyle(feature)
     });
-    this.pathsNicenessLayer = new VectorLayer({
+    const pathsNicenessLayer = new VectorLayer({
       source: this.pathsDetailsSource,
       minZoom: this.nicenessInfoThresholdZoom,
       style: (feature: Feature) => this.getPathNicenessStyle(feature)
     });
 
-    this.select = new Select({layers: [this.pathsSecurityLayer], toggleCondition: never});
+    const backgroundLayer = this.getMapboxStyleLayer('assets/jawg-terrain-nolabels.json');
+    const labelsLayer = this.getMapboxStyleLayer('assets/jawg-terrain-onlylabels.json');
+
+    this.select = new Select({layers: [pathsSecurityLayer], toggleCondition: never});
     this.modify = new Modify({features: this.select.getFeatures()});
     this.draw = new Draw({
       source: this.pathsDetailsSource,
@@ -384,6 +357,16 @@ export class AppComponent implements OnInit {
 
     this.bikeMap = new Map({
       target: 'bike_map',
+      layers: [
+        backgroundLayer,
+        heatLayer,
+        pathsSecurityLayer,
+        labelsLayer,
+        pathsNicenessLayer,
+        this.departmentsLayer,
+        this.regionsLayer,
+        this.countryLayer
+      ],
       interactions: defaultInteractions({pinchRotate: false}).extend([
         this.select,
         this.modify,
@@ -397,95 +380,6 @@ export class AppComponent implements OnInit {
       controls: defaultControls({attributionOptions: {collapsible: true}})
         .extend([new ScaleLine()])
     });
-
-    this.setRasterMap();
-  }
-
-  private setRasterMap() {
-    this.backgroundLayer = new TileLayer({
-      source: new XYZ({
-        url: 'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png',
-        tilePixelRatio: 2,
-        attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      })
-    });
-    this.labelsLayer = new TileLayer({
-      source: new XYZ({
-        url: 'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png',
-        tilePixelRatio: 2,
-        attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      })
-    });
-    this.addLayers();
-  }
-
-  private setMapboxGl() {
-    this.backgroundLayer = this.getMapboxStyleLayer('assets/jawg-terrain-nolabels.json');
-    this.labelsLayer = this.getMapboxStyleLayer('assets/jawg-terrain-onlylabels.json');
-    this.addLayers();
-  }
-
-  private setMapboxFunctionStyle() {
-    fetch('assets/jawg-terrain-onlylabels.json')
-      .then((labelsStyle) => labelsStyle.json())
-      .then((labelsGlStyle) => {
-        this.labelsLayer = new VectorTileLayer({
-          source: new VectorTile({
-            format: new MVT(),
-            url: `https://{a-c}.tile.jawg.io/streets-v2+landcover-v1+hillshade-v1+contour-v1/{z}/{x}/{y}.pbf?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO`,
-          })
-        });
-        (this.labelsLayer as VectorTileLayer).setStyle(stylefunction(this.labelsLayer, labelsGlStyle, 'streets-v2+landcover-v1+hillshade-v1+contour-v1'));
-
-        fetch('assets/jawg-terrain-nolabels.json')
-          .then((noLabelsStyle) => noLabelsStyle.json())
-          .then((noLLabelsGlStyle) => {
-            this.backgroundLayer = new VectorTileLayer({
-              source: new VectorTile({
-                format: new MVT(),
-                url: `https://{a-c}.tile.jawg.io/streets-v2+landcover-v1+hillshade-v1+contour-v1/{z}/{x}/{y}.pbf?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO`,
-              })
-            });
-            (this.backgroundLayer as VectorTileLayer).setStyle(stylefunction(this.backgroundLayer, noLLabelsGlStyle, 'streets-v2+landcover-v1+hillshade-v1+contour-v1'));
-            this.addLayers();
-          });
-      });
-  }
-
-  private setMapboxApplyStyle() {
-    this.backgroundLayer = null;
-    this.labelsLayer = null;
-    olms(this.bikeMap, 'assets/jawg-terrain.json')
-      .then(() => {
-        this.addLayers();
-      });
-  }
-
-  private removeLayers() {
-    for (const layer of this.getStackedLayers()) {
-      this.bikeMap.removeLayer(layer);
-    }
-  }
-
-  private addLayers() {
-    for (const layer of this.getStackedLayers()) {
-      if (layer) {
-        this.bikeMap.addLayer(layer);
-      }
-    }
-  }
-
-  private getStackedLayers(): Layer[] {
-    return [
-      this.backgroundLayer,
-      this.heatLayer,
-      this.pathsSecurityLayer,
-      this.labelsLayer,
-      this.pathsNicenessLayer,
-      this.departmentsLayer,
-      this.regionsLayer,
-      this.countryLayer
-    ];
   }
 
   // From https://openlayers.org/en/latest/examples/mapbox-layer.html

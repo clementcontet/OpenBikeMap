@@ -26,7 +26,6 @@
     "mapbox-gl": "1.8.1",
     "ngx-bar-rating": "^2.0.0",
     "ol": "^6.4.3",
-    "ol-mapbox-style": "^6.1.4",
     "rxjs": "~6.5.4",
     "tslib": "^1.10.0",
     "zone.js": "~0.10.2"
