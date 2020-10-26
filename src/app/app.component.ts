@@ -8,6 +8,8 @@ import {MatDialog} from '@angular/material/dialog';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {User, firestore} from 'firebase';
 import * as mapboxgl from 'mapbox-gl';
+import stylefunction from 'ol-mapbox-style/dist/stylefunction';
+import olms from 'ol-mapbox-style';
 import {ScaleLine, defaults as defaultControls} from 'ol/control';
 import {Coordinate} from 'ol/coordinate';
 import {never, primaryAction} from 'ol/events/condition';
@@ -38,6 +40,8 @@ import {Fill, Icon, Stroke, Style, Text} from 'ol/style';
 import View from 'ol/View';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
+import VectorTileLayer from 'ol/layer/VectorTile';
+import MVT from 'ol/format/MVT';
 
 enum InteractionState {
   Browsing,
@@ -129,14 +133,19 @@ export class AppComponent implements OnInit {
     rasterSwitch.addEventListener('change', (e) => {
       this.removeLayers();
       switch (rasterSwitch.value) {
-        case 'Raster':
+        case 'raster':
           this.setRasterMap();
           break;
-        case 'Vector':
-          this.setVectorMap();
+        case 'mapbox-gl':
+          this.setMapboxGl();
+          break;
+        case 'ol-mapbox-function-style':
+          this.setMapboxFunctionStyle();
+          break;
+        case 'ol-mapbox-apply-style':
+          this.setMapboxApplyStyle();
           break;
       }
-      this.addLayers();
     });
 
     this.subscribeToFirestoreModifications();
@@ -390,7 +399,6 @@ export class AppComponent implements OnInit {
     });
 
     this.setRasterMap();
-    this.addLayers();
   }
 
   private setRasterMap() {
@@ -408,11 +416,49 @@ export class AppComponent implements OnInit {
         attributions: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
       })
     });
+    this.addLayers();
   }
 
-  private setVectorMap() {
+  private setMapboxGl() {
     this.backgroundLayer = this.getMapboxStyleLayer('assets/jawg-terrain-nolabels.json');
     this.labelsLayer = this.getMapboxStyleLayer('assets/jawg-terrain-onlylabels.json');
+    this.addLayers();
+  }
+
+  private setMapboxFunctionStyle() {
+    fetch('assets/jawg-terrain-onlylabels.json')
+      .then((labelsStyle) => labelsStyle.json())
+      .then((labelsGlStyle) => {
+        this.labelsLayer = new VectorTileLayer({
+          source: new VectorTile({
+            format: new MVT(),
+            url: `https://{a-c}.tile.jawg.io/streets-v2+landcover-v1+hillshade-v1+contour-v1/{z}/{x}/{y}.pbf?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO`,
+          })
+        });
+        (this.labelsLayer as VectorTileLayer).setStyle(stylefunction(this.labelsLayer, labelsGlStyle, 'streets-v2+landcover-v1+hillshade-v1+contour-v1'));
+
+        fetch('assets/jawg-terrain-nolabels.json')
+          .then((noLabelsStyle) => noLabelsStyle.json())
+          .then((noLLabelsGlStyle) => {
+            this.backgroundLayer = new VectorTileLayer({
+              source: new VectorTile({
+                format: new MVT(),
+                url: `https://{a-c}.tile.jawg.io/streets-v2+landcover-v1+hillshade-v1+contour-v1/{z}/{x}/{y}.pbf?access-token=XhZNLftXy8skZzhojr9iKq2Dt0tpcwHN9ooyjlEcXhC1HDpM9RrzSAz0dm3Zb1iO`,
+              })
+            });
+            (this.backgroundLayer as VectorTileLayer).setStyle(stylefunction(this.backgroundLayer, noLLabelsGlStyle, 'streets-v2+landcover-v1+hillshade-v1+contour-v1'));
+            this.addLayers();
+          });
+      });
+  }
+
+  private setMapboxApplyStyle() {
+    this.backgroundLayer = null;
+    this.labelsLayer = null;
+    olms(this.bikeMap, 'assets/jawg-terrain.json')
+      .then(() => {
+        this.addLayers();
+      });
   }
 
   private removeLayers() {
@@ -423,7 +469,9 @@ export class AppComponent implements OnInit {
 
   private addLayers() {
     for (const layer of this.getStackedLayers()) {
-      this.bikeMap.addLayer(layer);
+      if (layer) {
+        this.bikeMap.addLayer(layer);
+      }
     }
   }
 
