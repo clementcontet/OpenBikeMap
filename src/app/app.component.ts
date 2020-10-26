@@ -62,16 +62,15 @@ export class AppComponent implements OnInit {
   private modify: Modify;
   private pathsDetailsSource = new VectorSource();
   private pathsCentersSource = new VectorSource();
-  private countryLayer: Layer;
-  private regionsLayer: Layer;
-  private departmentsLayer: Layer;
+  private countrySumLayer: Layer;
+  private regionsSumLayer: Layer;
+  private departmentsSumLayer: Layer;
   private readonly gpsProjection = 'EPSG:4326';
   private readonly osmProjection = 'EPSG:3857';
   private readonly countryThresholdZoom = 6;
   private readonly regionThresholdZoom = 8;
   private readonly departmentThresholdZoom = 10;
   private readonly nicenessInfoThresholdZoom = 14;
-  private readonly areaBorderStyle = new Style({stroke: new Stroke({color: '#333'})});
   private readonly angularFirestore: AngularFirestore;
   private readonly angularFireAuth: AngularFireAuth;
   user: User;
@@ -238,9 +237,9 @@ export class AppComponent implements OnInit {
           }
 
           // These three layers sources don't change, but they style should change with the new distance
-          this.countryLayer.changed();
-          this.regionsLayer.changed();
-          this.departmentsLayer.changed();
+          this.countrySumLayer.changed();
+          this.regionsSumLayer.changed();
+          this.departmentsSumLayer.changed();
 
           // If one removes an item that was selected, go back to Browsing
           if (this.existingFeatureSelected() && this.select.getFeatures().getLength() === 0) {
@@ -302,33 +301,53 @@ export class AppComponent implements OnInit {
 
   private createMap() {
     const countrySource = new VectorSource({url: 'assets/country.geojson', format: this.geoJson});
-    this.countryLayer = new VectorLayer({
+    this.countrySumLayer = new VectorLayer({
       source: countrySource,
       maxZoom: this.countryThresholdZoom,
-      style: (feature: Feature) => this.getAreaStyle(feature, true),
+      style: (feature: Feature) => this.getAreaSumStyle(feature, true),
+    });
+
+    const countryBorderLayer = new VectorLayer({
+      source: countrySource,
+      maxZoom: this.departmentThresholdZoom,
+      style: () => this.getAreaBorderStyle(3),
     });
 
     const regionSource = new VectorSource({url: 'assets/regions.geojson', format: this.geoJson});
-    this.regionsLayer = new VectorLayer({
+    this.regionsSumLayer = new VectorLayer({
       source: regionSource,
       minZoom: this.countryThresholdZoom,
       maxZoom: this.regionThresholdZoom,
-      style: (feature: Feature) => this.getAreaStyle(feature, false),
+      style: (feature: Feature) => this.getAreaSumStyle(feature, false),
+    });
+
+    const regionsBorderLayer = new VectorLayer({
+      source: regionSource,
+      minZoom: this.countryThresholdZoom,
+      maxZoom: this.departmentThresholdZoom,
+      style: () => this.getAreaBorderStyle(2),
     });
 
     const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: this.geoJson});
-    this.departmentsLayer = new VectorLayer({
+    this.departmentsSumLayer = new VectorLayer({
       source: departmentsSource,
       minZoom: this.regionThresholdZoom,
       maxZoom: this.departmentThresholdZoom,
-      style: (feature: Feature) => this.getAreaStyle(feature, false),
+      style: (feature: Feature) => this.getAreaSumStyle(feature, false),
+    });
+
+    const departmentsBorderLayer = new VectorLayer({
+      source: departmentsSource,
+      minZoom: this.regionThresholdZoom,
+      maxZoom: this.departmentThresholdZoom,
+      style: () => this.getAreaBorderStyle(1),
     });
 
     const heatLayer = new Heatmap({
       source: this.pathsCentersSource,
       maxZoom: this.departmentThresholdZoom,
       weight: feature => feature.getProperties().distance,
-      gradient: ['#fff', '#09689c']
+      gradient: ['#fff', '#9013FE']
     });
 
     const pathsSecurityLayer = new VectorLayer({
@@ -359,13 +378,16 @@ export class AppComponent implements OnInit {
       target: 'bike_map',
       layers: [
         backgroundLayer,
-        heatLayer,
         pathsSecurityLayer,
+        heatLayer,
+        departmentsBorderLayer,
+        regionsBorderLayer,
+        countryBorderLayer,
         labelsLayer,
         pathsNicenessLayer,
-        this.departmentsLayer,
-        this.regionsLayer,
-        this.countryLayer
+        this.departmentsSumLayer,
+        this.regionsSumLayer,
+        this.countrySumLayer,
       ],
       interactions: defaultInteractions({pinchRotate: false}).extend([
         this.select,
@@ -539,7 +561,7 @@ export class AppComponent implements OnInit {
     }
   }
 
-  private getAreaStyle(areaFeature: Feature, isFrance: boolean): Style[] {
+  private getAreaSumStyle(areaFeature: Feature, isFrance: boolean): Style {
     const distance = this.pathsCentersSource.getFeatures()
       .filter(pathFeature => areaFeature.getGeometry().intersectsCoordinate((pathFeature.getGeometry() as Point).getCoordinates()))
       .map(pathFeature => pathFeature.getProperties().distance)
@@ -547,24 +569,25 @@ export class AppComponent implements OnInit {
 
     let areaCenter: Geometry;
     if (isFrance) {
-      // https://fr.wikipedia.org/wiki/Centre_de_la_France
-      areaCenter = new Point([2 + (25 + 0 / 60) / 60, 46 + (45 + 7 / 60) / 60])
+      areaCenter = new Point([2, 46])
         .transform(this.gpsProjection, this.osmProjection);
     } else {
       areaCenter = new Point(getCenter(areaFeature.getGeometry().getExtent()));
     }
 
-    return [
-      this.areaBorderStyle,
-      new Style({
-        geometry: areaCenter,
-        text: new Text({
-          font: '1.5em bold Helvetica, sans-serif',
-          text: `${Math.round(distance)}km`,
-          fill: new Fill({color: '#fff'}),
-          stroke: new Stroke({color: '#000', width: 4}),
-        }),
-      })];
+    return new Style({
+      geometry: areaCenter,
+      text: new Text({
+        font: '1.5em bold Helvetica, sans-serif',
+        text: `${Math.round(distance)}km`,
+        fill: new Fill({color: '#fff'}),
+        stroke: new Stroke({color: '#444', width: 4}),
+      }),
+    });
+  }
+
+  private getAreaBorderStyle(width: number): Style {
+    return new Style({stroke: new Stroke({color: '#888', width})});
   }
 
   private listenToEvents() {
