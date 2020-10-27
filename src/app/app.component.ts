@@ -9,6 +9,7 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {User, firestore} from 'firebase';
 import * as mapboxgl from 'mapbox-gl';
 import {ScaleLine, defaults as defaultControls} from 'ol/control';
+import Control from 'ol/control/Control';
 import {Coordinate} from 'ol/coordinate';
 import {never, primaryAction} from 'ol/events/condition';
 import {getCenter} from 'ol/extent';
@@ -18,6 +19,7 @@ import Geometry from 'ol/geom/Geometry';
 import GeometryType from 'ol/geom/GeometryType';
 import LineString from 'ol/geom/LineString';
 import Point from 'ol/geom/Point';
+import {circular} from 'ol/geom/Polygon';
 import {Draw, Modify, Select, Snap, defaults as defaultInteractions} from 'ol/interaction';
 import {DrawEvent} from 'ol/interaction/Draw';
 import {ModifyEvent} from 'ol/interaction/Modify';
@@ -55,11 +57,13 @@ export class AppComponent implements OnInit {
   title = 'open-bike-map';
   InteractionState = InteractionState;
   interactionState = InteractionState.Browsing;
+  drawToggleDisplayed = true;
   selectedPathDistance = null;
   private bikeMap: Map;
   private draw: Draw;
   private select: Select;
   private modify: Modify;
+  private geolocSource: VectorSource;
   private pathsDetailsSource = new VectorSource();
   private pathsCentersSource = new VectorSource();
   private countrySumLayer: Layer;
@@ -67,9 +71,9 @@ export class AppComponent implements OnInit {
   private departmentsSumLayer: Layer;
   private readonly gpsProjection = 'EPSG:4326';
   private readonly osmProjection = 'EPSG:3857';
-  private readonly countryThresholdZoom = 6;
-  private readonly regionThresholdZoom = 8;
-  private readonly departmentThresholdZoom = 10;
+  private readonly countryRegionThresholdZoom = 6;
+  private readonly regionDepartmentThresholdZoom = 8;
+  private readonly departmentPathThresholdZoom = 10;
   private readonly nicenessInfoThresholdZoom = 14;
   private readonly angularFirestore: AngularFirestore;
   private readonly angularFireAuth: AngularFireAuth;
@@ -303,56 +307,56 @@ export class AppComponent implements OnInit {
     const countrySource = new VectorSource({url: 'assets/country.geojson', format: this.geoJson});
     this.countrySumLayer = new VectorLayer({
       source: countrySource,
-      maxZoom: this.countryThresholdZoom,
+      maxZoom: this.countryRegionThresholdZoom,
       style: (feature: Feature) => this.getAreaSumStyle(feature, true),
     });
 
     const countryBorderLayer = new VectorLayer({
       source: countrySource,
-      maxZoom: this.departmentThresholdZoom,
+      maxZoom: this.departmentPathThresholdZoom,
       style: () => this.getAreaBorderStyle(3),
     });
 
     const regionSource = new VectorSource({url: 'assets/regions.geojson', format: this.geoJson});
     this.regionsSumLayer = new VectorLayer({
       source: regionSource,
-      minZoom: this.countryThresholdZoom,
-      maxZoom: this.regionThresholdZoom,
+      minZoom: this.countryRegionThresholdZoom,
+      maxZoom: this.regionDepartmentThresholdZoom,
       style: (feature: Feature) => this.getAreaSumStyle(feature, false),
     });
 
     const regionsBorderLayer = new VectorLayer({
       source: regionSource,
-      minZoom: this.countryThresholdZoom,
-      maxZoom: this.departmentThresholdZoom,
+      minZoom: this.countryRegionThresholdZoom,
+      maxZoom: this.departmentPathThresholdZoom,
       style: () => this.getAreaBorderStyle(2),
     });
 
     const departmentsSource = new VectorSource({url: 'assets/departments.geojson', format: this.geoJson});
     this.departmentsSumLayer = new VectorLayer({
       source: departmentsSource,
-      minZoom: this.regionThresholdZoom,
-      maxZoom: this.departmentThresholdZoom,
+      minZoom: this.regionDepartmentThresholdZoom,
+      maxZoom: this.departmentPathThresholdZoom,
       style: (feature: Feature) => this.getAreaSumStyle(feature, false),
     });
 
     const departmentsBorderLayer = new VectorLayer({
       source: departmentsSource,
-      minZoom: this.regionThresholdZoom,
-      maxZoom: this.departmentThresholdZoom,
+      minZoom: this.regionDepartmentThresholdZoom,
+      maxZoom: this.departmentPathThresholdZoom,
       style: () => this.getAreaBorderStyle(1),
     });
 
     const heatLayer = new Heatmap({
       source: this.pathsCentersSource,
-      maxZoom: this.departmentThresholdZoom,
+      maxZoom: this.departmentPathThresholdZoom,
       weight: feature => feature.getProperties().distance,
       gradient: ['#fff', '#9013FE']
     });
 
     const pathsSecurityLayer = new VectorLayer({
       source: this.pathsDetailsSource,
-      minZoom: this.departmentThresholdZoom,
+      minZoom: this.departmentPathThresholdZoom,
       style: (feature: Feature) => this.getPathSecurityStyle(feature)
     });
     const pathsNicenessLayer = new VectorLayer({
@@ -363,7 +367,7 @@ export class AppComponent implements OnInit {
 
     const backgroundLayer = this.getMapboxStyleLayer('assets/jawg-terrain-nolabels.json');
     const labelsLayer = this.getMapboxStyleLayer('assets/jawg-terrain-onlylabels.json');
-
+    this.geolocSource = new VectorSource();
     this.select = new Select({layers: [pathsSecurityLayer], toggleCondition: never});
     this.modify = new Modify({features: this.select.getFeatures()});
     this.draw = new Draw({
@@ -400,8 +404,42 @@ export class AppComponent implements OnInit {
         zoom: 15
       }),
       controls: defaultControls({attributionOptions: {collapsible: true}})
-        .extend([new ScaleLine()])
+        .extend([
+          new ScaleLine(),
+          this.addLocateControl()
+        ])
     });
+
+    this.bikeMap.on('moveend', () => {
+      this.drawToggleDisplayed = this.bikeMap.getView().getZoom() > this.departmentPathThresholdZoom;
+    });
+  }
+
+  // From https://openlayers.org/workshop/en/mobile/geolocation.html
+  private addLocateControl() {
+    navigator.geolocation.watchPosition((pos) => {
+      const coords = [pos.coords.longitude, pos.coords.latitude];
+      const accuracy = circular(coords, pos.coords.accuracy);
+      this.geolocSource.clear(true);
+      this.geolocSource.addFeature(new Feature(accuracy.transform(this.gpsProjection, this.bikeMap.getView().getProjection())),);
+    }, (error) => {
+      alert(`Erreur : ${error.message}`);
+    }, {
+      enableHighAccuracy: true
+    });
+
+    const locate = document.createElement('div');
+    locate.className = 'ol-control ol-unselectable locate';
+    locate.innerHTML = '<button title="Locate me"><img src="assets/Target_Location.png" width="20px" height="20px"/></button>';
+    locate.addEventListener('click', () => {
+      if (!this.geolocSource.isEmpty()) {
+        this.bikeMap.getView().fit(this.geolocSource.getExtent(), {
+          maxZoom: 18,
+          duration: 500
+        });
+      }
+    });
+    return new Control({element: locate});
   }
 
   // From https://openlayers.org/en/latest/examples/mapbox-layer.html
@@ -800,9 +838,9 @@ export class AppComponent implements OnInit {
       this.securityRating = undefined;
       this.nicenessRating = undefined;
       this.snackBar.open(
-        'Tracez le chemin en cliquant\n[Entrée] pour valider / [Esc] pour annuler',
+        'Tracez le chemin en cliquant\n[Entrée] ou [Double-clic] pour valider / [Esc] pour annuler',
         null,
-        {horizontalPosition: 'center', verticalPosition: 'top'}
+        {horizontalPosition: 'center', verticalPosition: 'bottom'}
       );
     } else {
       this.snackBar.dismiss();

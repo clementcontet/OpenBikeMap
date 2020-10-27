@@ -82,18 +82,20 @@
       </div>
 
       <button id="enable_draw"
-              *ngIf="interactionState === InteractionState.Browsing"
-              mat-flat-button
+              *ngIf="interactionState === InteractionState.Browsing && drawToggleDisplayed"
+              mat-mini-fab
               color="primary"
+              matTooltip="Tracer un nouveau chemin"
               (click)="startDrawing()">
-        Ajouter un chemin
+        <mat-icon>create</mat-icon>
       </button>
       <button id="disable_draw"
               *ngIf="interactionState === InteractionState.Drawing"
-              mat-flat-button
+              mat-mini-fab
               color="warn"
+              matTooltip="Annuler le tracé"
               (click)="cancelDrawing()">
-        Annuler le tracé
+        <mat-icon>clear</mat-icon>
       </button>
     </div>
   </mat-sidenav-content>

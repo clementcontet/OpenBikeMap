@@ -41,6 +41,13 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
 
 #enable_draw, #disable_draw {
   position: absolute;
+  top: 4em;
+  right: 0.5em;
+  z-index: 1;
+}
+
+#enable_draw, #disable_draw {
+  position: absolute;
   bottom: 0.5em;
   z-index: 1;
 }
