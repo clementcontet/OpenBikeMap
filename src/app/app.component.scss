@@ -1,5 +1,3 @@
-@import '../styles';
-
 // https://la-cascade.io/pourquoi-height-100-ne-marche-pas/
 html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
   height: 100%;
@@ -10,6 +8,10 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
 #mat-sidenav {
   display: grid;
   width: 200px;
+}
+
+.mat-card {
+  margin: 8px;
 }
 
 .nav_title {
@@ -36,7 +38,7 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
 }
 
 #my_ratings {
-  border: 1px solid map_get($candy-app-primary, default);
+  border: 1px solid #1998d0;
 }
 
 #start_modification,
@@ -47,8 +49,9 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
   margin: 8px;
 }
 
-.mat-card {
-  margin: 8px;
+#modification_hints {
+  margin: 16px;
+  color: #9e9e9e;
 }
 
 #login, #logout {

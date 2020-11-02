@@ -62,6 +62,9 @@
               *ngIf="interactionState === InteractionState.Consulting"
               mat-flat-button color="primary" (click)="startModification()">Modifier
       </button>
+      <div id="modification_hints" *ngIf=" interactionState=== InteractionState.Consulting">
+        Donner un avis sur la sécurité/la jolitude de la piste ou bien modifier son tracé.
+      </div>
       <button id="cancel_modification"
               *ngIf="interactionState === InteractionState.Modifying"
               mat-flat-button color="warn" (click)="cancelEdition()">Annuler
