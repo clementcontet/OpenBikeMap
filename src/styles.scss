@@ -75,3 +75,35 @@ $candy-app-theme: mat-light-theme(
 // Alternatively, you can import and @include the theme mixins for each component
 // that you are using.
 @include angular-material-theme($candy-app-theme);
+
+// Exact copy of default rating style but with custom colors
+$star-default: map_get($candy-app-warn, default);
+$star-active: map_get($candy-app-primary, default);
+$star-selected: map_get($candy-app-primary, default);
+
+.br-custom {
+
+  .br-units {
+    align-items: center;
+  }
+
+  .br-unit {
+    margin-right: 5px;
+    font-size: 23px;
+    height: 18px;
+    width: 18px;
+
+    &:after {
+      content: "\2605";
+      color: $star-default;
+    }
+  }
+
+  .br-selected:after {
+    color: $star-selected;
+  }
+
+  .br-active:after {
+    color: $star-active;
+  }
+}

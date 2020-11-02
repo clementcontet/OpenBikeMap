@@ -1,6 +1,63 @@
 <mat-sidenav-container>
   <mat-sidenav mode="side" position="end" [opened]="featureSelected()">
     <div id="mat-sidenav">
+      <div class="nav_title" *ngIf="interactionState === InteractionState.Consulting">
+        Infos de la piste
+      </div>
+      <div class="nav_title" *ngIf="interactionState === InteractionState.Modifying">
+        Modifier la piste
+      </div>
+      <div class="nav_title" *ngIf="interactionState === InteractionState.Creating">
+        Piste en cours de création
+      </div>
+
+      <mat-card>
+        <mat-icon class="subtitle-icon" color='primary'>settings_ethernet</mat-icon>
+        <span class="nav_subtitle">
+            Distance : {{selectedPathDistance}}km
+          </span>
+      </mat-card>
+
+      <!-- Don't use *ngIf because otherwise the canvas elements
+      are not created fast enough to be accessible from controller -->
+      <div [hidden]="!existingFeatureSelected()">
+        <mat-card>
+          <div>
+            <mat-icon class="subtitle-icon" color='primary'>forum</mat-icon>
+            <span class="nav_subtitle">
+               Avis ({{ratings}})
+            </span>
+          </div>
+          <div class="ratings">
+            Sécurité : {{averageSecurityRating !== undefined ? averageSecurityRating + '/5' : '?'}}
+            <canvas style="float: right" id="securityRatingCanvas"></canvas>
+            <br>
+            Jolitude : {{averageNicenessRating !== undefined ? averageNicenessRating + '/5' : '?'}}
+            <canvas style="float: right" id="nicenessRatingCanvas"></canvas>
+          </div>
+        </mat-card>
+      </div>
+
+      <mat-card *ngIf="featureModified()" id="my_ratings">
+        <mat-icon class="subtitle-icon" color='primary'>textsms</mat-icon>
+        <span class="nav_subtitle">
+          Mon avis
+        </span>
+        <div class="ratings">
+          Piste sécurisée ?
+          <bar-rating
+            [theme]="'custom'"
+            [(rate)]="securityRating"
+            max="5" (rateChange)="onChangeRating()"></bar-rating>
+          <br>
+          Jolie balade ?
+          <bar-rating
+            [theme]="'custom'"
+            [(rate)]="nicenessRating"
+            max="5" (rateChange)="onChangeRating()"></bar-rating>
+        </div>
+      </mat-card>
+
       <button id="start_modification"
               *ngIf="interactionState === InteractionState.Consulting"
               mat-flat-button color="primary" (click)="startModification()">Modifier
@@ -13,49 +70,13 @@
               *ngIf="interactionState === InteractionState.Creating"
               mat-flat-button color="warn" (click)="cancelEdition()">Annuler la création
       </button>
-
-      <mat-card>
-        Distance : {{selectedPathDistance}}km
-      </mat-card>
-
-      <!-- Don't use *ngIf because otherwise the canvas elements
-      are not created fast enough to be accessible from controller -->
-      <div [hidden]="!existingFeatureSelected()">
-        <mat-card>
-          <p>Notes moyennes ({{ratings}}) :</p>
-          <div class="ratings">
-            Sécurité : {{averageSecurityRating !== undefined ? averageSecurityRating + '/5' : '?'}}
-            <canvas style="float: right" id="securityRatingCanvas"></canvas>
-            <br>
-            Jolitude : {{averageNicenessRating !== undefined ? averageNicenessRating + '/5' : '?'}}
-            <canvas style="float: right" id="nicenessRatingCanvas"></canvas>
-          </div>
-        </mat-card>
-      </div>
-
-      <mat-card
-        *ngIf="featureModified()">
-        <p>Mon avis :</p>
-        <div class="ratings">
-          Piste sécurisée ?
-          <bar-rating
-            [(rate)]="securityRating"
-            max="5" (rateChange)="onChangeRating()"></bar-rating>
-          <br>
-          Jolie balade ?
-          <bar-rating
-            [(rate)]="nicenessRating"
-            max="5" (rateChange)="onChangeRating()"></bar-rating>
-        </div>
-      </mat-card>
-
       <button id="validate_modification"
               *ngIf="interactionState === InteractionState.Modifying"
-              mat-flat-button color="accent" (click)="validateEdition()">Valider
+              mat-flat-button color="primary" (click)="validateEdition()">Valider
       </button>
       <button id="validate_creation"
               *ngIf="interactionState === InteractionState.Creating"
-              mat-flat-button color="accent" (click)="validateEdition()">Créer le chemin
+              mat-flat-button color="primary" (click)="validateEdition()">Créer la piste
       </button>
     </div>
   </mat-sidenav>
@@ -85,7 +106,7 @@
               *ngIf="interactionState === InteractionState.Browsing && drawToggleDisplayed"
               mat-mini-fab
               color="primary"
-              matTooltip="Tracer un nouveau chemin"
+              matTooltip="Tracer une nouvelle piste"
               (click)="startDrawing()">
         <mat-icon>create</mat-icon>
       </button>

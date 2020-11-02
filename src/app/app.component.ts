@@ -421,7 +421,7 @@ export class AppComponent implements OnInit {
       const coords = [pos.coords.longitude, pos.coords.latitude];
       const accuracy = circular(coords, pos.coords.accuracy);
       this.geolocSource.clear(true);
-      this.geolocSource.addFeature(new Feature(accuracy.transform(this.gpsProjection, this.bikeMap.getView().getProjection())),);
+      this.geolocSource.addFeature(new Feature(accuracy.transform(this.gpsProjection, this.bikeMap.getView().getProjection())));
     }, (error) => {
       alert(`Erreur : ${error.message}`);
     }, {
@@ -590,7 +590,9 @@ export class AppComponent implements OnInit {
   }
 
   getRatingColor(rating: number): string {
-    if (rating <= 2) {
+    if (!rating) {
+      return '#d2d2d2';
+    } else if (rating <= 2) {
       return '#DC3C14';
     } else if (rating >= 4) {
       return '#32C832';
@@ -710,7 +712,7 @@ export class AppComponent implements OnInit {
         width: '250px',
         data: {
           header: 'Attention',
-          content: 'Vous devez vous connecter pour pouvoir créer un nouveau chemin.',
+          content: 'Vous devez vous connecter pour pouvoir créer une nouvelle piste.',
           cancelPossible: false
         }
       });
@@ -733,7 +735,7 @@ export class AppComponent implements OnInit {
         width: '250px',
         data: {
           header: 'Attention',
-          content: 'Vous devez vous connecter pour pouvoir modifier un chemin.',
+          content: 'Vous devez vous connecter pour pouvoir modifier une piste.',
           cancelPossible: false
         }
       });
@@ -768,7 +770,7 @@ export class AppComponent implements OnInit {
       itemId = feature.getProperties().firestoreId;
     }
     this.updateGeometryIfNeeded(feature, itemId)
-      .then(() => this.updateRatingsIfNeeded(itemId));
+      .then(() => this.updateRatingsIfNeeded(feature, itemId));
     this.interactionState = InteractionState.Browsing;
     this.updateInteractions();
   }
@@ -794,8 +796,10 @@ export class AppComponent implements OnInit {
     }
   }
 
-  updateRatingsIfNeeded(itemId: string) {
+  updateRatingsIfNeeded(feature: Feature<Geometry>, itemId: string) {
     if (this.ratingChanged) {
+      // Put the path in grey before Firestore computes the new value
+      feature.setProperties({security: null, niceness: null});
       this.angularFirestore.collection('ratings').doc(itemId).collection('entries')
         .doc(this.user.email).set({security: this.securityRating, niceness: this.nicenessRating});
     }
