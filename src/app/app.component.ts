@@ -81,6 +81,7 @@ export class AppComponent implements OnInit {
   ratings: number;
   averageSecurityRating: number;
   averageNicenessRating: number;
+  ownPath: boolean;
   securityRating: number;
   nicenessRating: number;
   geometryChanged: boolean;
@@ -828,6 +829,56 @@ export class AppComponent implements OnInit {
     this.updateInteractions();
   }
 
+  deletePath() {
+    const feature = this.select.getFeatures().item(0);
+    const deletionDialogRef = this.dialog.open(PopupDialogComponent, {
+      width: '250px',
+      data: {
+        header: 'Attention',
+        content: 'Souhaitez-vous vraiment supprimer cette piste ?',
+        cancelPossible: true,
+        validate: false
+      }
+    });
+    deletionDialogRef.afterClosed().subscribe(deletionValidated => {
+      if (deletionValidated) {
+        if ((feature.getProperties().ratings || 1) === 1) {
+          this.doDeletePath(feature);
+        } else {
+          const deletionConfirmationDialogRef = this.dialog.open(PopupDialogComponent, {
+            width: '250px',
+            data: {
+              header: 'Attention',
+              content: 'Cette piste a déjà été notée par d\'autres cyclistes, êtes-vous sûr de vouloir la supprimer ?',
+              cancelPossible: true,
+              validate: false
+            }
+          });
+
+          deletionConfirmationDialogRef.afterClosed().subscribe(deletionConfirmationValidated => {
+            if (deletionConfirmationValidated) {
+              this.doDeletePath(feature);
+            }
+          });
+        }
+      }
+    });
+  }
+
+  private doDeletePath(feature: Feature<Geometry>) {
+    this.angularFirestore.collection('items').doc(feature.getProperties().firestoreId).delete()
+      .then(() => {
+        this.dialog.open(PopupDialogComponent, {
+          width: '250px',
+          data: {
+            header: 'Info',
+            content: 'Piste supprimée',
+            cancelPossible: false
+          }
+        });
+      });
+  }
+
   onChangeRating() {
     this.ratingChanged = true;
   }
@@ -858,6 +909,7 @@ export class AppComponent implements OnInit {
         this.ratings = feature.getProperties().ratings || 1;
         this.averageSecurityRating = feature.getProperties().security;
         this.averageNicenessRating = feature.getProperties().niceness;
+        this.ownPath = feature.getProperties().creator === this.user.email;
 
         const securityRatingCanvas = document.getElementById('securityRatingCanvas') as HTMLCanvasElement;
         const securityRatingCanvasContext = toContext(securityRatingCanvas.getContext('2d'), {size: [20, 15]});

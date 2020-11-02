@@ -81,6 +81,10 @@
               *ngIf="interactionState === InteractionState.Creating"
               mat-flat-button color="primary" (click)="validateEdition()">Créer la piste
       </button>
+      <button id="delete_path"
+              *ngIf="interactionState === InteractionState.Consulting && ownPath"
+              mat-flat-button color="accent" (click)="deletePath()">Supprimer la piste
+      </button>
     </div>
   </mat-sidenav>
 
@@ -89,7 +93,7 @@
       <div *ngIf="user">
         <button id="logout"
                 mat-mini-fab
-                color="accent"
+                color="primary"
                 matTooltip="Se déconnecter de {{user.email}}"
                 (click)="logout()">
           <mat-icon>account_circle</mat-icon>

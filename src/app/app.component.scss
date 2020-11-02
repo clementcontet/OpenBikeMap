@@ -45,12 +45,20 @@ html, body, app-root, mat-sidenav-container, mat-sidenav-content, #bike_map {
 #cancel_modification,
 #cancel_creation,
 #validate_modification,
-#validate_creation {
+#validate_creation,
+#delete_path {
   margin: 8px;
 }
 
+#delete_path {
+  position: absolute;
+  bottom: 0px;
+  width: 184px;
+}
+
 #modification_hints {
-  margin: 16px;
+  margin-left: 16px;
+  margin-right: 16px;
   color: #9e9e9e;
 }
 
