@@ -236,7 +236,6 @@ export class AppComponent implements OnInit {
 
           const newItems = items.filter(item => item.payload.type === 'added' || item.payload.type === 'modified');
           if (newItems.length > 0) {
-            this.removeFeatures(newItems);
             this.pathsCentersSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(newItems, true)));
             this.pathsDetailsSource.addFeatures(this.geoJson.readFeatures(this.getFeaturesCollection(newItems, false)));
           }
@@ -744,13 +743,8 @@ export class AppComponent implements OnInit {
   }
 
   validateEdition() {
-    if (
-      (this.interactionState === InteractionState.Creating
-        && (!this.securityRating || !this.nicenessRating))
-      ||
-      (this.interactionState === InteractionState.Modifying
-        && this.ratingChanged
-        && (!this.securityRating || !this.nicenessRating))) {
+    if ((this.interactionState === InteractionState.Creating || this.interactionState === InteractionState.Modifying)
+      && (!this.securityRating || !this.nicenessRating)) {
       this.dialog.open(PopupDialogComponent, {
         width: '250px',
         data: {
