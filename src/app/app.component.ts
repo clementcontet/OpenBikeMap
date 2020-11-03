@@ -909,7 +909,7 @@ export class AppComponent implements OnInit {
         this.ratings = feature.getProperties().ratings || 1;
         this.averageSecurityRating = feature.getProperties().security;
         this.averageNicenessRating = feature.getProperties().niceness;
-        this.ownPath = feature.getProperties().creator === this.user.email;
+        this.ownPath = feature.getProperties().creator === this.user?.email;
 
         const securityRatingCanvas = document.getElementById('securityRatingCanvas') as HTMLCanvasElement;
         const securityRatingCanvasContext = toContext(securityRatingCanvas.getContext('2d'), {size: [20, 15]});
