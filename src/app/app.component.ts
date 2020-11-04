@@ -743,8 +743,7 @@ export class AppComponent implements OnInit {
   }
 
   validateEdition() {
-    if ((this.interactionState === InteractionState.Creating || this.interactionState === InteractionState.Modifying)
-      && (!this.securityRating || !this.nicenessRating)) {
+    if (!this.securityRating || !this.nicenessRating) {
       this.dialog.open(PopupDialogComponent, {
         width: '250px',
         data: {
