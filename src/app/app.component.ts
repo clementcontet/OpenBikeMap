@@ -28,12 +28,11 @@ import Heatmap from 'ol/layer/Heatmap';
 import Layer from 'ol/layer/Layer';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
-import * as olProj from 'ol/proj';
-import {toLonLat} from 'ol/proj';
+import {fromLonLat, toLonLat} from 'ol/proj';
 import {toContext} from 'ol/render';
 import VectorSource from 'ol/source/Vector';
 import VectorTile from 'ol/source/VectorTile';
-import * as sphere from 'ol/sphere';
+import {getDistance} from 'ol/sphere';
 import {Fill, Icon, Stroke, Style, Text} from 'ol/style';
 import View from 'ol/View';
 import {LoginDialogComponent} from './login-dialog/login-dialog.component';
@@ -70,7 +69,7 @@ export class AppComponent implements OnInit {
   private regionsSumLayer: Layer;
   private departmentsSumLayer: Layer;
   private readonly gpsProjection = 'EPSG:4326';
-  private readonly osmProjection = 'EPSG:3857';
+  private readonly sphericalMercatorProjection = 'EPSG:3857';
   private readonly countryRegionThresholdZoom = 6;
   private readonly regionDepartmentThresholdZoom = 8;
   private readonly departmentPathThresholdZoom = 10;
@@ -89,7 +88,7 @@ export class AppComponent implements OnInit {
   private readonly dialog: MatDialog;
   private readonly snackBar: MatSnackBar;
   private readonly location: Location;
-  private readonly geoJson = new GeoJSON({featureProjection: this.osmProjection});
+  private readonly geoJson = new GeoJSON({featureProjection: this.sphericalMercatorProjection});
 
   featureSelected() {
     return this.interactionState === InteractionState.Creating
@@ -400,7 +399,7 @@ export class AppComponent implements OnInit {
         snap
       ]),
       view: new View({
-        center: olProj.fromLonLat([4.832, 45.758]),
+        center: fromLonLat([4.832, 45.758]),
         zoom: 15
       }),
       controls: defaultControls({attributionOptions: {collapsible: true}})
@@ -609,8 +608,7 @@ export class AppComponent implements OnInit {
 
     let areaCenter: Geometry;
     if (isFrance) {
-      areaCenter = new Point([2, 46])
-        .transform(this.gpsProjection, this.osmProjection);
+      areaCenter = new Point(fromLonLat([2, 46]));
     } else {
       areaCenter = new Point(getCenter(areaFeature.getGeometry().getExtent()));
     }
@@ -699,7 +697,7 @@ export class AppComponent implements OnInit {
   private updateDistance(feature: Feature<Geometry>) {
     const geometry = feature.getGeometry()
       .clone()
-      .transform(this.osmProjection, this.gpsProjection);
+      .transform(this.sphericalMercatorProjection, this.gpsProjection);
     this.selectedPathDistance = Math.round(this.computeDistance(geometry as LineString) / 100) / 10;
   }
 
@@ -773,7 +771,7 @@ export class AppComponent implements OnInit {
     if (this.geometryChanged || this.interactionState === InteractionState.Creating) {
       const geometry = feature.getGeometry()
         .clone()
-        .transform(this.osmProjection, this.gpsProjection);
+        .transform(this.sphericalMercatorProjection, this.gpsProjection);
       const coordinates = (geometry as LineString).getCoordinates();
       // Nested arrays are not supported in Cloud Firestore (yet?)
       // so 'coordinates' is stored as a dict (see https://stackoverflow.com/a/36388401)
@@ -944,7 +942,7 @@ export class AppComponent implements OnInit {
     for (const coord of lineCoords) {
       const coordX = coord[0];
       const coordY = coord[1];
-      distance = distance + sphere.getDistance([lastX, lastY], [coordX, coordY]);
+      distance = distance + getDistance([lastX, lastY], [coordX, coordY]);
       lastX = coordX;
       lastY = coordY;
     }
