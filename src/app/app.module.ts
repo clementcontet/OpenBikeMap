@@ -17,6 +17,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {FormsModule} from '@angular/forms';
 import {AngularFireAuthModule} from '@angular/fire/auth';
+import {AngularFireAnalyticsModule} from '@angular/fire/analytics';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {PopupDialogComponent} from './popup-dialog/popup-dialog.component';
 import {MatSnackBarModule} from '@angular/material/snack-bar';
@@ -34,6 +35,7 @@ import {BarRatingModule} from 'ngx-bar-rating';
     AngularFireModule.initializeApp(environment.firebase),
     AngularFirestoreModule,
     AngularFireAuthModule,
+    AngularFireAnalyticsModule,
     BrowserAnimationsModule,
     MatSidenavModule,
     MatButtonModule,

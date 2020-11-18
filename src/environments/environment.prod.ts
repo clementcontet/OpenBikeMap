@@ -12,6 +12,7 @@ export const environment = {
     storageBucket: 'open-bike-map.appspot.com',
     messagingSenderId: '377402317727',
     appId: '1:377402317727:web:89ff93bb137e6bb22fbbaa',
+    measurementId: 'G-C8R0DZZM4V'
   },
   signInEmailLinkDomain: 'https://open-bike-map.web.app/'
 };
