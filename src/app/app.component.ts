@@ -155,8 +155,8 @@ export class AppComponent implements OnInit {
           this.dialog.open(PopupDialogComponent, {
             width: '250px',
             data: {
-              header: 'Attention',
-              content: 'Lien invalide, veuillez recommencer l\'authentification.',
+              header: 'Erreur',
+              content: 'Lien invalide, veuillez recommencer la connexion.',
               cancelPossible: false
             }
           });
@@ -166,8 +166,8 @@ export class AppComponent implements OnInit {
       this.dialog.open(PopupDialogComponent, {
         width: '250px',
         data: {
-          header: 'Attention',
-          content: 'Lien invalide sur cet appareil, veuillez recommencer l\'authentification.',
+          header: 'Erreur',
+          content: 'Lien invalide sur cet appareil, veuillez recommencer la connexion.',
           cancelPossible: false
         }
       });
@@ -199,8 +199,8 @@ export class AppComponent implements OnInit {
             this.dialog.open(PopupDialogComponent, {
               width: '250px',
               data: {
-                header: 'Info',
-                content: 'L\'email de connexion a été envoyé.',
+                header: 'Patience...',
+                content: 'Dès réception de l\'email, vous pourrez vous connecter !',
                 cancelPossible: false
               }
             });
@@ -213,8 +213,8 @@ export class AppComponent implements OnInit {
     const dialogRef = this.dialog.open(PopupDialogComponent, {
       width: '250px',
       data: {
-        header: 'Info',
-        content: 'Se déconnecter de ' + this.user.email + ' ?',
+        header: 'Attention',
+        content: 'Souhaitez-vous vous déconnecter de ' + this.user.email + ' ?',
         cancelPossible: true,
         validate: false
       }
