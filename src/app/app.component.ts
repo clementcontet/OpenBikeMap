@@ -399,8 +399,8 @@ export class AppComponent implements OnInit {
         snap
       ]),
       view: new View({
-        center: fromLonLat([4.832, 45.758]),
-        zoom: 15
+        center: fromLonLat([2, 47]),
+        zoom: 6
       }),
       controls: defaultControls({attributionOptions: {collapsible: true}})
         .extend([
